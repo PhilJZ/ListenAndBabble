@@ -1,0 +1,135 @@
+
+srange
+-----------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------
+A range of speakers between child and adult were produced. 
+
+In "FileAge.txt" the speakerfiles are given their corresponding age in yrs and months. Format: "File" "Yrs" "Months" \n
+
+The distances in parameters in each step were based on the condition, that the following speaker must be distinguishable by ear from the current speaker.
+The way these were saved was such: "year"_"month" and were taken directly from the anatomy representation of age in vtl. Exeptions are:
+6_11, where upper molars height was changed from 0 to 0.36cm (for a smoother transition from 6yrs to 7yrs.
+
+It remains unclear, how we can change f0 of the speakers. Include in gesture scores? Is there a way to link some kind of standard fo in gesture scores to the speakerŽs age?
+
+In VTL2, one can change F0 by changing it in "LF glottal flow model". ->Link this to gestures??
+
+http://www.ncvs.org/ncvs/tutorials/voiceprod/tutorial/changes.html shows the development of f0 in men/women.
+
+In order to retrieve a reasonable model, follow the matlab-script (scroll right down)
+
+
+
+
+
+
+
+
+
+
+
+
+
+srangefm
+-----------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------
+A range of speakers (male and female) between 0 years and 20.
+
+In "srangefm/FileAge.txt" the speakerfiles are given their corresponding age in yrs and months. Format: "File" "Yrs" "Months" "Sex" \n
+Sex: 0 = male, 1 = female
+
+Steps were 2 years. So two files for 0 years, 2 for 2 years (0, 1, 2, 3,) etc
+
+
+
+
+
+
+
+
+
+
+Add the following sometime?
+Last 4 speakers:
+
+Used adult speakers, did formant adjustments to those in the paper
+
+																			/i/ (e.g.)
+																	F0		F1		F2		F3
+Nr. 22: mean age: 25,5 -> 22 25 6(months) 0 (YM)	-> Formants: 	114		299		2201	2986
+Nr. 23: mean age: 25,5 -> 23 25 6 1 (Ywomen)		-> Formants:	204		373		2557	3116
+Nr. 24: mean age: 75,2 -> 24 75 4 0 (OM)			-> Formants:	142		315		2184	2804
+Nr. 25: mean age: 75,2 -> 25 75 4 1 (OW)			-> Formants:	180		365		2360	2931
+
+From :
+"
+Twenty-seven younger adults, 15 women (YW) and 12 men (YM) participated in this project. These younger adults
+had a mean age of 25.5 years and an age range of 20–35 years. The younger adults were all undergraduate or graduate
+students of San Diego State University (SDSU) and they all reported normal hearing at the time of the study.
+Additionally, 59 older adults, including 32 women (OW) and 27 men (OM), also took part in this project. The mean
+age for these participants was 75.2 years with an age range of 60–89 years. The older participants all had some degree
+of hearing loss because they were recruited from the SDSU Audiology Clinic and they were allowed to wear their
+hearing aids if they chose to. Both groups of participants were native English speakers.
+"  ----> Table 1
+(Age-related changes in acoustic characteristics of adult speech
+Peter Torre III*, Jessica A. Barlow)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+%Matlab script to fit some reasonable f0s to the ages of our files
+%data:
+xy1 = [0+500i,1.5+400i,3+300i,8+275i,10+260i,12+250i,14+240i,16+225i,18+200i,20+180i,25+140i,30+130i,40+120i,50+120i];
+xy2 = [0+500i,1.5+400i,3+300i,8+275i,10+265i,12+260i,14+255i,16+240i,18+220i,20+215i,25+207i,30+200i,40+197i,50+195i];
+%male:
+x1 = real(xy1);
+y1 = imag(xy1);
+%female:
+x2 = real(xy2);
+y2 = imag(xy2);
+
+%fit
+pp_m = BSFK(x1,y1,4,9); %alternate last number (n. of knots in the spline)
+pp_f = BSFK(x2,y2,4,9);
+
+%compute fit to specific x-values (ages)
+ages_m = [0 2 4 6 8 10 12 14 16 18 20];%adjust this, of course, to the group
+ages_f = ages_m;
+
+f0_m = ppval(pp1,ages_m);
+f0_f = ppval(pp2,ages_f);
+
+%plot the fit
+xx = linspace(0,50,100)
+yy1 = ppval(pp_m,xx)
+yy2 = ppval(pp_f,xx)
+
+figure(1)
+clf
+hold on;
+plot(x1,y1,'.b');plot(x2,y2,'.g');
+plot(xx,yy1,xx,yy2)
+title('A free-knot spline approx. for voice-height over age')
+xlabel('Age in yrs')
+ylabel('Fundamental frequency [f_0] in Hz')
+legend('men datapoints','women datapoints','fit (men)','fit (women)')
+
+
