@@ -157,7 +157,7 @@ class parameters(object):
 		# Jobs to be done..?
 		# --------------------------------------------------------------------------------------------------------------
 				#Compare leaky networks with non-leaky networks?
-		self.do_compare_leaky = True
+		self.include_nonleaky = True
 				#Turns plotting on
 		self.do_plot_hearing = True
 				#After chosing a final output ESN, analyze it (thresholds for later rewards e.g.) ?
@@ -171,9 +171,11 @@ class parameters(object):
 		# Network parameters
 		# --------------------------------------------------------------------------------------------------------------
 			#Network sizes for variation [default: 10,20,50]
-		self.reservoir_sizes = [1,10,100,1000]#[1,10,20,50,80,100,120,140,200,500,1000,2000] # 2000 is about the maximum for my pc.
+		import numpy
+		self.reservoir_sizes = numpy.logspace(0,4,20)#[1,10,20,50,80,100,120,140,200,500,1000,2000] # 2000 is about the maximum for my pc.
+		self.reservoir_sizes = [int(n) for n in self.reservoir_sizes] # For instance, when you use logspace. (reservoir sizes must be int)
 			#Number of simulations per worker. [default: 1]
-		self.trains_per_worker = 20
+		self.trains_per_worker = 5
 			#Leak rate of leaky reservoir neurons. [default: 0.4]
 		self.leak_rate = 0.4
 			#Spectral radius of leaky reservoir. [default: 0.9]
@@ -210,7 +212,7 @@ class parameters(object):
 		# matrix:         							[len(self.speakers)]
 		# 
 		# [len(self.reservoir_sizes)]
-		self.do_sweep_omitted_speakers = True
+		self.do_sweep_omitted_speakers = False
 		self.omitted_groups = [[0,1,2,3],[4,5,6,7],[8,9,10,11],[12,13,14,15],[16,17,18,19,20,21]]
 		self.omitted_group_labels = ['ages 0-2','ages 4-6','ages 8-10','ages 12-14','ages 16-20']
 		#self.sweep_gap_size = 3

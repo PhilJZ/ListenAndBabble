@@ -62,7 +62,7 @@ class hear(funcs):
 			print('averaging over', self.n_trains, 'trials')
 			print('network size:', self.reservoir_sizes)
 			print('using compressed DRNL output:', self.compressed_output)
-			print('comparing leaky network to non-leaky network:',self.do_compare_leaky)
+			print('comparing leaky network to non-leaky network:',self.include_nonleaky)
 			print('verbose mode:', self.verbose)
 			print('plot mode:', self.do_plot_hearing)
 			print 80*"-"
@@ -193,14 +193,14 @@ class hear(funcs):
 		"""
 		if self.n_workers > 1:
 			self.final_errors['leaky'] = comm.gather(self.errors['leaky'], root=0)
-			self.final_errors['non-leaky'] = comm.gather(self.errors['non-leaky'], roo=0) if self.do_compare_leaky else []
+			self.final_errors['non-leaky'] = comm.gather(self.errors['non-leaky'], roo=0) if self.include_nonleaky else []
 			self.final_cmatrices['leaky'] = comm.gather(self.c_matrices['leaky'], root=0)
-			self.final_cmatrices['non-leaky'] = comm.gather(self.c_matrices['non-leaky'], root=0) if self.do_compare_leaky else []
+			self.final_cmatrices['non-leaky'] = comm.gather(self.c_matrices['non-leaky'], root=0) if self.include_nonleaky else []
 		else:
 			self.final_errors['leaky'] = self.errors['leaky']
-			self.final_errors['non-leaky'] = self.errors['non-leaky'] if self.do_compare_leaky else []
+			self.final_errors['non-leaky'] = self.errors['non-leaky'] if self.include_nonleaky else []
 			self.final_cmatrices['leaky'] = self.c_matrices['leaky']
-			self.final_cmatrices['non-leaky'] = self.c_matrices['non-leaky'] if self.do_compare_leaky else []
+			self.final_cmatrices['non-leaky'] = self.c_matrices['non-leaky'] if self.include_nonleaky else []
 	
 		# Post-processing only by master (write results to a file)
 	

@@ -92,18 +92,18 @@ class functions(params):
 		# Prepare lists for errors of each network size
 		self.errors = dict()
 		self.errors['leaky'] = numpy.zeros([self.trains_per_worker, len(self.reservoir_sizes)])
-		if self.do_compare_leaky:
+		if self.include_nonleaky:
 			self.errors['non-leaky'] = self.errors['leaky'].copy()
 			
 		self.error_matrix = dict()	
 		self.error_matrix['leaky'] = numpy.zeros(len(self.reservoir_sizes))
-		if self.do_compare_leaky:
+		if self.include_nonleaky:
 			self.error_matrix['non-leaky'] = self.error_matrix['leaky'].copy()
 		
 		# Create empty list for confusion matrices for each network size
 		self.c_matrices = dict()
 		self.c_matrices['leaky'] = numpy.zeros([len(self.reservoir_sizes), self.n_vowels+1, self.n_vowels+1])
-		if self.do_compare_leaky:
+		if self.include_nonleaky:
 			self.c_matrices['non-leaky'] = self.c_matrices['leaky'].copy()
 		
 		# Final errors and cmatrices (only used by master)
@@ -181,7 +181,7 @@ class functions(params):
 			
 			#Create an empty result file
 			size = str(not len(self.reservoir_sizes)==1)
-			filename = str(self.n_vowels)+'vow_'+str(self.n_channels)+'chan_'+size+'size_'+str(self.do_compare_leaky)+'_compare.out'
+			filename = str(self.n_vowels)+'vow_'+str(self.n_channels)+'chan_'+size+'size_'+str(self.include_nonleaky)+'_compare.out'
 			
 			self.result_file = self.result_path+'/' + filename
 			
@@ -469,7 +469,7 @@ class functions(params):
 	
 		for j in xrange(len(self.reservoir_sizes)):     # loop over network sizes
 			self.current_reservoir = j
-			for train in xrange(self.trains_per_worker):
+			for train in range(self.trains_per_worker):
 				
 				# Leaky (done anyway)
 				# ...........................................................
@@ -485,7 +485,7 @@ class functions(params):
 				# ...........................................................
 				
 				
-				if self.do_compare_leaky:
+				if self.include_nonleaky:
 					# Non-leaky (optional)
 					# ...........................................................
 					
@@ -506,13 +506,14 @@ class functions(params):
 				# ----------------------------------------------------------------
 					self.errors['non-leaky'][train][self.current_reservoir] = error_nonleaky
 					self.c_matrices['non-leaky'][self.current_reservoir] += c_matrix_nonleaky
-					
+				
+				
 				self.errors['leaky'][train][self.current_reservoir] = error_leaky
 				self.c_matrices['leaky'][self.current_reservoir] += c_matrix_leaky
 				# ----------------------------------------------------------------
 				
 				# Print current cmatrices?
-				if self.verbose and self.do_compare_leaky:
+				if self.verbose and self.include_nonleaky:
 					print('c_matrix_leaky:', c_matrix_leaky)
 					print('c_matrix_nonleaky:', c_matrix_nonleaky)
 					
@@ -524,15 +525,13 @@ class functions(params):
 						
 
 		# Divide by number of trains per worker
-		if self.do_compare_leaky:
-			self.c_matrices['leaky'] /= self.trains_per_worker
+		self.c_matrices['leaky'] /= self.trains_per_worker
+		if self.include_nonleaky:
 			self.c_matrices['non-leaky'] /= self.trains_per_worker
-		else:
-			self.c_matrices['leaky'] /= self.trains_per_worker
 		
 		
 		# Print cmatrices?
-		if self.do_compare_leaky and self.verbose:
+		if self.include_nonleaky and self.verbose:
 			print('total_c_matrices_leaky:', self.c_matrices['leaky'])
 			print('total_c_matrices_nonleaky:', self.c_matrices['non-leaky'])
 		elif self.verbose:
@@ -832,7 +831,7 @@ class functions(params):
 		# errors, as well as two confusion matrices! leaky_states is either only leaky, or (if compared)
 		# both leaky and non-leaky. Write out all the results for both cases.
 		leaky_states = ['leaky']
-		if self.do_compare_leaky:
+		if self.include_nonleaky:
 			leaky_states.append('non-leaky')
 		# for both (or only leaky)
 		for leaky_state in leaky_states:
@@ -938,23 +937,41 @@ class functions(params):
 		"""
 		function to plot the errors of the classification over various network sizes
 		"""
+		debug()
 		system('mkdir --parents '+self.result_path+'/error_plots')
-		f = plt.figure()
-		plt.title('ESN classification errors for various network sizes')
-		sf = f.add_subplot(111)#(121)
 		
-		leaky, = sf.plot(self.reservoir_sizes,self.final_errors['leaky'],'b-',label='leaky')
+		x = self.reservoir_sizes
+		y_leaky = self.final_errors['leaky']
+		yerr_leaky = self.final_stds['leaky']
+		if self.include_nonleaky:
+			y_nonleaky = self.final_errors['non-leaky']
+			yerr_nonleaky = self.final_stds['non-leaky']
 		
-		if self.do_compare_leaky:
-			non_leaky, = sf.plot(self.reservoir_sizes,self.final_errors['non-leaky'],'r-',label='non-leaky')
-			plt.legend([leaky,non_leaky],['leaky','non-leaky'])
-		else:
-			plt.legend([leaky],['leaky'])
+		
+		plt.close("all")
+		f=plt.figure()
+		plt.clf()
+		plt.hold(True)
+		plt.title('ESN classification errors over network sizes')
+		
+		ax = f.add_subplot(1,1,1)
+		
 			
+		#leaky, =ax.plot(x,y_leaky,'b-',label='leaky')
+		leaky, =ax.errorbar(x,y_leaky,yerr=yerr_nonleaky,color='b')
+		
+		
+		if self.include_nonleaky:
+			#non_leaky, =ax.plot(x,y_nonleaky,'r-',label='non-leaky')
+			non_leaky, =ax.errorbar(x,y_nonleaky,yerr=yerr_nonleaky,color='r')
+			f.legend([leaky,non_leaky],['leaky','non-leaky'])
+		else:
+			f.legend(handles=[leaky,non_leaky])	
 		plt.xlabel('Network size')
 		plt.ylabel('Error rate')
 		plt.ylim([0,1])
-		f.savefig(self.result_path+'/error_plots/errors.png')
+		plt.xlim([0,max(self.reservoir_sizes)+1])
+		f.savefig(self.result_path+'/error_plots/errors_with_stds.png')
 			
 
 	def plot_error_matrix(self):
