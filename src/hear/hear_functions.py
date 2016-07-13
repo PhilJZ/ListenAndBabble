@@ -178,6 +178,8 @@ class functions(params):
 					system('mkdir '+self.result_path+'/prototype_plots')
 				elif not(os.listdir(self.result_path+'/prototype_plots') == []):
 					system('rm -r '+self.result_path+'/prototype_plots/*')
+				if not os.path.isdir(self.result_path+'/error_plots'):
+					system('mkdir '+self.result_path+'/error_plots')
 			
 			#Create an empty result file
 			size = str(not len(self.reservoir_sizes)==1)
@@ -502,8 +504,8 @@ class functions(params):
 				
 				
 				
-				# Collect current error rates and append current confusion matrix.
-				# ----------------------------------------------------------------
+					# Collect current error rates and append current confusion matrix.
+					# ----------------------------------------------------------------
 					self.errors['non-leaky'][train][self.current_reservoir] = error_nonleaky
 					self.c_matrices['non-leaky'][self.current_reservoir] += c_matrix_nonleaky
 				
@@ -937,8 +939,7 @@ class functions(params):
 		"""
 		function to plot the errors of the classification over various network sizes
 		"""
-		debug()
-		system('mkdir --parents '+self.result_path+'/error_plots')
+		
 		
 		x = self.reservoir_sizes
 		y_leaky = self.final_errors['leaky']
@@ -958,12 +959,12 @@ class functions(params):
 		
 			
 		#leaky, =ax.plot(x,y_leaky,'b-',label='leaky')
-		leaky, =ax.errorbar(x,y_leaky,yerr=yerr_nonleaky,color='b')
+		leaky =ax.errorbar(x,y_leaky,yerr=yerr_nonleaky,color='b')
 		
 		
 		if self.include_nonleaky:
 			#non_leaky, =ax.plot(x,y_nonleaky,'r-',label='non-leaky')
-			non_leaky, =ax.errorbar(x,y_nonleaky,yerr=yerr_nonleaky,color='r')
+			non_leaky =ax.errorbar(x,y_nonleaky,yerr=yerr_nonleaky,color='r')
 			f.legend([leaky,non_leaky],['leaky','non-leaky'])
 		else:
 			f.legend(handles=[leaky,non_leaky])	
@@ -995,7 +996,7 @@ class functions(params):
 			ax.set_yticklabels(self.omitted_group_labels)
 			ax.set_xticks(range(len(self.reservoir_sizes)))
 			ax.set_xticklabels(self.reservoir_sizes,rotation='vertical')
-			plt.ylabel('omitted speaker')
+			plt.ylabel('omitted speaker ages')
 			plt.xlabel('reservoir sizes')
 			try:
 				plt.colorbar()

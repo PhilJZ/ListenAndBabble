@@ -216,7 +216,7 @@ class ambient_speech(funcs):
 		
 		
 		
-		print "Thanks for using 'hear' and 'hear functions'"
+		print "Thanks for using 'ambient_speech' and 'ambient_speech_functions'"
 		
 		
 		

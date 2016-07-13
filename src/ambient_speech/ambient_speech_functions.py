@@ -918,7 +918,7 @@ class functions(params):
 				plt.title("Vowel formants entire speaker series (male and female)")
 				fsub = f.add_subplot(111)
 				scatters = []
-				for vowel in self.vowels:
+				for vowel in self.vowels_with_schwa:
 					#The things we want to plot..
 					x = [self.male_formants[vowel][:,1],self.female_formants[vowel][:,1]]#F1
 					y = [self.male_formants[vowel][:,2],self.female_formants[vowel][:,2]]#F2

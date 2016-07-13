@@ -70,7 +70,7 @@ class parameters(object):
 			#Shall speech samples (used to train the auditory system) be produced? (Takes a lot of time, depending on how many samples are produced..)
 		self.do_make_samples = False
 			#Shall the user be given the chance to change classifications? Make a backup of the samples, before executing this..
-		self.do_user_check = False
+		self.do_user_check = True
 			#Shall those speech samples be analysed? (Look at formants of good samples vs bad samples (meaning (non-) or representative)? )
 		self.do_sample_analysis = False # Ideally do the sample analysis after the user check.
 
@@ -92,7 +92,7 @@ class parameters(object):
 		self.vowels="all"
 	
 		# The speakers in the speaker group we want to look at.. If you want the whole speaker group, simply put "all".
-		self.speakers="all"
+		self.speakers=[2,6,10,12,13,16,17,20,21]
 		
 		# F0-parameters:
 		# --------------------------------------------------------------------------------------------------------------
@@ -119,7 +119,7 @@ class parameters(object):
 			# speech samples for each vowel for each speaker.
 			# noise-sigma for the shape parameters > speech samples that are true vowel sounds or not representative (higher sigma)
 			# larger noise-sigma for shape parameters > speech samples that shouldn't represent true vowel sounds
-		self.sampling = 	   {'n_samples':12, # roughly 100 samples per cathegory required for good training..
+		self.sampling = 	   {'n_samples':18, # roughly 100 samples per cathegory required for good training..
 									'sigma':0.01, # Sigma used for most vowels. With vowel /u/, sigma will be reduced thus: sigma_u = sigma * 0.7
 									'process sound':True, 
 									'n_channels':50,
@@ -166,13 +166,12 @@ class parameters(object):
 		self.be_verbose_in['hear'] = False
 		
 	
-	
-	
 		# Network parameters
 		# --------------------------------------------------------------------------------------------------------------
 			#Network sizes for variation [default: 10,20,50]
-		import numpy
-		self.reservoir_sizes = numpy.logspace(0,4,20)#[1,10,20,50,80,100,120,140,200,500,1000,2000] # 2000 is about the maximum for my pc.
+		#
+		#import numpy
+		self.reservoir_sizes = numpy.logspace(1,3,6)#60+2*numpy.logspace(1,3,6)#[1,10,20,50,80,100,120,140,200,500,1000,2000] # 2000 is about the maximum for my pc.
 		self.reservoir_sizes = [int(n) for n in self.reservoir_sizes] # For instance, when you use logspace. (reservoir sizes must be int)
 			#Number of simulations per worker. [default: 1]
 		self.trains_per_worker = 5
@@ -188,7 +187,7 @@ class parameters(object):
 		# Training & Testing
 		# --------------------------------------------------------------------------------------------------------------
 		self.n_samples = {
-			'train' 	: 	8,
+			'train' 	: 	7,
 			'test'		:	2
 									}
 		# Use:
@@ -212,11 +211,12 @@ class parameters(object):
 		# matrix:         							[len(self.speakers)]
 		# 
 		# [len(self.reservoir_sizes)]
-		self.do_sweep_omitted_speakers = False
-		self.omitted_groups = [[0,1,2,3],[4,5,6,7],[8,9,10,11],[12,13,14,15],[16,17,18,19,20,21]]
-		self.omitted_group_labels = ['ages 0-2','ages 4-6','ages 8-10','ages 12-14','ages 16-20']
-		#self.sweep_gap_size = 3
+		self.do_sweep_omitted_speakers = True
+		# Omitted groups: list of lists of one ore more speakers. Speakers are not the speaker numbers (as in 0-21), but the
+		# indexes of the speakers in self.speakers. If self.speakers = "all", then ofc, the index will be the speaker number (or name)
+		self.omitted_groups = [[0],[1],[2],[3,4],[5,6],[7,8]]
 		
+		self.omitted_group_labels = ['age 2','age 6','age 10','age 12 (m/f)','age 16 (m/f)','age 20 (m/f)']
 		
 
 		# FLAGS
