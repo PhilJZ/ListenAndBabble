@@ -441,8 +441,8 @@ class functions(params):
 		# minimum. (during conversion, 'current_sigma' gets smaller
 		# and smaller. Then, after reset, sigma (the starting value of
 		# current_sigma) can be altered. Thus, we have 3 sigmas, of 
-		# which sigma_0 will always stay the same, sigma changes slowly 
-		# with every reset. Current sigma is changed after every generation.
+		# which sigma_0 will always stay the same, current_sigma changes slowly 
+		# with every reset. sigma is changed after every generation.
 		# For now, we set both sigma and current_sigma to sigma_0
 		sigma = self.sigma_0
 		current_sigma = self.sigma_0
@@ -894,13 +894,7 @@ class functions(params):
 				self.get_next_target()
 				# Update the learner pars of the new target now!
 				self.update_learner_pars(x_mean)
-			
-			if self.target in self.targets_learnt:
-				print "Remaining Bug: Sometimes a target will be continue to be learnt, even if learnt already. A simple and rough fix would be the following lines:"
-				debug()
-				while self.target in self.targets_learnt:
-					self.target = random.choice(self.targets)
-				self.target_index = self.targets.index(self.target)
+		
 				
 			
 			
@@ -1437,17 +1431,17 @@ class functions(params):
 		max_confidence_unlearnt = numpy.amax(generation_maxima[unlearnt_target_indices])
 		
 		# Get the right index out of generation_maxima
+		
 		self.target_index = numpy.where(generation_maxima==max_confidence_unlearnt)[0][0]
 		
 		self.target = self.targets[self.target_index]
 		
 		if self.target in self.targets_learnt:
-			print "already in learnt"
-			print unlearnt_target_indices
-			print max_confidence_unlearnt
-			print self.target_index
-			debug()
-			
+			# This might still happen (if, e.g. more than one value of max_confidence_unlearnt is found in generation_maxima)
+			# For example: generation maxima is: array([ 0.,  0.,  0.,  0.,  0.,  1.])
+			# In this case, simply pick a random non-learnt target
+			self.target = random.choice(self.targets[unlearnt_target_indices])
+			self.target_index = self.targets.index(self.target)			
 		
 	
 	

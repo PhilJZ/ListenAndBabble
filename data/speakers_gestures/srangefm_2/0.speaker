@@ -172,21 +172,21 @@
         <param name="MA3" value="0.0000" domi="0.0"/>
       </shape>
       <shape name="input">
-        <param name="HX" value="0.3959" domi="0.0"/>
-        <param name="HY" value="-2.9784" domi="0.0"/>
+        <param name="HX" value="0.5229" domi="0.0"/>
+        <param name="HY" value="-2.4079" domi="0.0"/>
         <param name="JX" value="-0.2000" domi="0.0"/>
         <param name="JA" value="-7.0000" domi="0.0"/>
         <param name="LP" value="0.4062" domi="0.0"/>
         <param name="LD" value="1.1566" domi="0.0"/>
-        <param name="VS" value="0.0330" domi="0.0"/>
+        <param name="VS" value="0.6851" domi="0.0"/>
         <param name="VO" value="-0.1000" domi="0.0"/>
         <param name="WC" value="0.0000" domi="0.0"/>
-        <param name="TCX" value="-0.3256" domi="0.0"/>
+        <param name="TCX" value="-1.1996" domi="0.0"/>
         <param name="TCY" value="-0.8063" domi="0.0"/>
-        <param name="TTX" value="2.7205" domi="0.0"/>
-        <param name="TTY" value="-0.8351" domi="0.0"/>
-        <param name="TBX" value="-2.3068" domi="0.0"/>
-        <param name="TBY" value="-1.2328" domi="0.0"/>
+        <param name="TTX" value="2.5687" domi="0.0"/>
+        <param name="TTY" value="0.7026" domi="0.0"/>
+        <param name="TBX" value="1.6252" domi="0.0"/>
+        <param name="TBY" value="2.1415" domi="0.0"/>
         <param name="TRX" value="-1.8530" domi="0.0"/>
         <param name="TRY" value="-1.7267" domi="0.0"/>
         <param name="TS1" value="0.0000" domi="0.0"/>
