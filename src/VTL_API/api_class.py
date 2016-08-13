@@ -2,7 +2,6 @@
 
 
 # General Imports
-import ctypes
 import sys
 from sys import stdout
 import os
@@ -10,11 +9,9 @@ from os import system,path
 import fileinput
 import shutil
 from brian.hears import loadsound
+import ctypes
 
-
-# Module imports
-LIB_VTL = ctypes.cdll.LoadLibrary(os.path.abspath('src/VTL_API/VocalTractLabApi.so'))
-
+LIB_VTL = ctypes.cdll.LoadLibrary('src/VTL_API/VocalTractLabApi.so')
 
 class VTL_API_class():
 	"""
@@ -59,10 +56,13 @@ class VTL_API_class():
 		"""
 		Define working header (needed in all functions)
 		"""
-		self.WAV_HEADER =  ('RIFF'+chr(0x8C)+chr(0x87)+chr(0x00)+chr(0x00)+'WAVEfmt'+chr(0x20)+
-							chr(0x10)+chr(0x00)+chr(0x00)+chr(0x00)+chr(0x01)+chr(0x00)+chr(0x01)+
-							chr(0x00)+'"V'+chr(0x00)+chr(0x00)+'D'+chr(0xAC)+chr(0x00)+chr(0x00)+
-							chr(0x02)+chr(0x00)+chr(0x10)+chr(0x00)+'data'                         )
+		#self.WAV_HEADER =  ('RIFF'+chr(0x8C)+chr(0x87)+chr(0x00)+chr(0x00)+'WAVEfmt'+chr(0x20)+
+		#					chr(0x10)+chr(0x00)+chr(0x00)+chr(0x00)+chr(0x01)+chr(0x00)+chr(0x01)+
+		#					chr(0x00)+'"V'+chr(0x00)+chr(0x00)+'D'+chr(0xAC)+chr(0x00)+chr(0x00)+
+		#					chr(0x02)+chr(0x00)+chr(0x10)+chr(0x00)+'data'                         )
+		self.WAV_HEADER = 'RIFF'+chr(0x8C)+chr(0x87)+chr(0x00)+chr(0x00)+'WAVEfmt'+chr(0x20)+chr(0x10)+chr(0x00)+chr(0x00)+chr(0x00)+chr(0x01)+chr(0x00)+chr(0x01)+chr(0x00)+'"V'+chr(0x00)+chr(0x00)+'D'+chr(0xAC)+chr(0x00)+chr(0x00)+chr(0x02)+chr(0x00)+chr(0x10)+chr(0x00)+'data'
+		
+		
 		
 
 	def main(self,input_dict,paths):
@@ -76,14 +76,7 @@ class VTL_API_class():
 		# Speaker
 		# -------------------------------------------------------------------------------------------------------
 		#	Get speaker paths
-		if self.learning_speaker:
-			if self.input_path:
-				self.speaker_path = self.input_path+'.speaker'
-				self.group,self.speaker = self.learning_speaker.split()
-			else:
-				raise RuntimeError("Provide the path to the learning speaker (as path['input_path'])!")
-		
-		elif self.group_speaker:
+		if self.group_speaker:
 			# Split (for example "srangefm 0" > "srange","0")
 			self.group,self.speaker = self.group_speaker.split()
 			
@@ -102,8 +95,9 @@ class VTL_API_class():
 		# Get output name (for wav and area file name)
 		output_name = self.speaker + '_' + self.simulation_name + '_' + str(self.rank)
 		
+
 		#	If parameter-based production, change speaker ('<input>'-shape)
-		if self.params:
+		if type(self.params) == list:
 			# Now, this is a bit tricky. If the user fed in parameters, that means the speaker
 			# file needs to be changed. If no gesture name was entered by the user, gesture is
 			# auto-set to 'input' in 'extract_input'. If, however, the user entered parameters
@@ -120,10 +114,8 @@ class VTL_API_class():
 		# 	Get gesture paths
 		if self.group_speaker:
 			self.gesture_path = 'data/speakers_gestures/%s/%s_%s.ges'%(self.group,self.speaker,self.gesture)
-		elif self.standard_speaker: 
+		elif self.standard_speaker:
 			self.gesture_path = 'data/speakers_gestures/standard/%s.ges'%(self.standard_speaker)
-		elif self.learning_speaker:
-			self.gesture_path = self.input_path+'_'+self.gesture+'.ges'
 		else:
 			raise RuntimeError('No speaker/gesture (input) folder!)')
 		
@@ -141,35 +133,48 @@ class VTL_API_class():
 		# Create Output directory if not yet there.
 		if not path.isdir(self.wav_folder):
 				system('mkdir --parents '+self.wav_folder)
-			
+		
 		
 		if self.verbose:
 			print "Calling vtlGesToWav to synthesize.."
-		
 		
 		# SYNTHESIZE
 		# Run through Vocal Tract Lab, feeding in all the paths to the right speaker and gesture files.
 		#	(Call LIB_VTL) in src/VTL_API/VocalTractLabApi.so
 		# -------------------------------------------------------------------------------------------------------
-		LIB_VTL.vtlGesToWav(self.speaker_path,self.gesture_path,self.wav_path,self.area_path)
+		
+		LIB_VTL.vtlGesToWav(self.speaker_path,self.gesture_path,self.wav_path,self.area_path)#self.gesture_path,self.wav_path,self.area_path
+		
+		
+		# Another option: Call in a transfer script called 'link.py', in the same folder as api_class.py
+		# The script would have to look like this:
+		"""
+		#!/usr/bin/python
+		import sys # For argument passing
+		import ctypes
+		LIB_VTL = ctypes.cdll.LoadLibrary('src/VTL_API/VocalTractLabApi.so')
+		LIB_VTL.vtlGesToWav(sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4])#self.gesture_path,self.wav_path,self.area_path
+		"""
+		# 	.. and be called like this (in this script).
+		"""
+		system('python src/VTL_API/link.py \"%s\" \"%s\" \"%s\" \"%s\"'%(self.speaker_path,self.gesture_path,self.wav_path,self.area_path))
+		"""
+		# This is an option, if the user notices, that VTL seems to take longer and longer to synthesize.. 
 		
 		
 		if self.verbose:
 			print "Sound produced, processing.."
-		
+	
 		# Repair header of wav File
 		# -------------------------------------------------------------------------------------------------------
 		with open(self.wav_path, 'rb') as file_:
 			content = file_.read()
-
-		shutil.move(self.wav_path, self.wav_path + '.bkup')
-
+			
 		with open(self.wav_path, 'wb') as newfile:
 			newcontent = self.WAV_HEADER + content[68:]
 			newfile.write(newcontent)
 
-		os.remove(self.wav_path + '.bkup')
-
+		
 		# 1.Correct initial sound
 		# 2.Check if not dead sound (which happens when parameters are such, that airflow is cut off in the vocal tract)
 		# -------------------------------------------------------------------------------------------------------
@@ -179,18 +184,10 @@ class VTL_API_class():
 		if self.verbose:
 			print "Sound processing completed!"
 			
+		# Play sound?
+		if self.verbose:
+			system('aplay '+self.wav_path)
 		
-
-
-
-
-
-	
-	
-	
-	
-	
-	
 	
 	
 	
@@ -274,9 +271,15 @@ class VTL_API_class():
 		"""
 		Convert input parameters to dictionary
 		"""
-		table = {	'HX':p[0], 'HY':p[1], 'JA':p[2], 'LP':p[3], 'LD':p[4], 'VS':p[5], 'TCX':p[6], 
-					'TCY':p[7], 'TTX':p[8], 'TTY':p[9], 'TBX':p[10], 'TBY':p[11], 'TS1':p[12], 'TS2':p[13], 
-					'TS3':p[14], 'TS4':p[15], 'SHAPE':shape_name}
+		# Make strings out of params
+		ps = []
+		for i in range(len(p)):
+			ps.append("%.4f" % p[i])
+		
+		
+		table = {	'HX':ps[0], 'HY':ps[1], 'JA':ps[2], 'LP':ps[3], 'LD':ps[4], 'VS':ps[5], 'TCX':ps[6], 
+					'TCY':ps[7], 'TTX':ps[8], 'TTY':ps[9], 'TBX':ps[10], 'TBY':ps[11], 'TS1':ps[12], 'TS2':ps[13], 
+					'TS3':ps[14], 'TS4':ps[15], 'SHAPE':shape_name}
 		return table
 
 
@@ -294,8 +297,9 @@ class VTL_API_class():
 		
 		Sometimes we don't have any sound at all. Give that info as output to the main function! passed: "did it pass the test?"
 		"""
+		
 		sound = loadsound(path) 			   #loadsound from brianhears
-		low = 300                              #duration of initial silence
+		low = 249                              #duration of initial silence
 		sound[0:low] = 0
 		sound.save(path)
 		
@@ -305,10 +309,12 @@ class VTL_API_class():
 		
 		for here in range(4000,12001,200):
 			mean += abs(sound[here][0])
-		
+			
 		valid = mean>0.2
 		
-		
+		#from matplotlib import pyplot as plt
+		#plt.plot(sound)
+		#plt.show()
 		
 		return valid
 	
@@ -341,60 +347,76 @@ class VTL_API_class():
 		# --------------------------------------------------------------------------------------------
 		
 		dic = self.get_dic(self.params,self.gesture) # Used for the following insertion into the speaker file
-	
+
 		insertion = """      <shape name="{SHAPE}">
-        <param name="HX" value="{HX}" domi="100.0"/>
-        <param name="HY" value="{HY}" domi="100.0"/>
-        <param name="JX" value="-0.2000" domi="100.0"/>
-        <param name="JA" value="{JA}" domi="100.0"/>
-        <param name="LP" value="{LP}" domi="100.0"/>
-        <param name="LD" value="{LD}" domi="100.0"/>
-        <param name="VS" value="{VS}" domi="100.0"/>
-        <param name="VO" value="-0.1000" domi="100.0"/>
-        <param name="WC" value="0.0000" domi="100.0"/>
-        <param name="TCX" value="{TCX}" domi="100.0"/>
-        <param name="TCY" value="{TCY}" domi="100.0"/>
-        <param name="TTX" value="{TTX}" domi="100.0"/>
-        <param name="TTY" value="{TTY}" domi="100.0"/>
-        <param name="TBX" value="{TBX}" domi="100.0"/>
-        <param name="TBY" value="{TBY}" domi="100.0"/>
-        <param name="TRX" value="-1.8530" domi="100.0"/>
-        <param name="TRY" value="-1.7267" domi="100.0"/>
-        <param name="TS1" value="{TS1}" domi="100.0"/>
-        <param name="TS2" value="{TS2}" domi="100.0"/>
-        <param name="TS3" value="{TS3}" domi="100.0"/>
-        <param name="TS4" value="{TS4}" domi="100.0"/>
-        <param name="MA1" value="0.0000" domi="100.0"/>
-        <param name="MA2" value="0.0000" domi="100.0"/>
-        <param name="MA3" value="0.0000" domi="100.0"/>\n      </shape>\n""".format(**dic)
-	
-	
+        <param name="HX" value="{HX}" domi="0.0"/>
+        <param name="HY" value="{HY}" domi="0.0"/>
+        <param name="JX" value="-0.2000" domi="0.0"/>
+        <param name="JA" value="{JA}" domi="0.0"/>
+        <param name="LP" value="{LP}" domi="0.0"/>
+        <param name="LD" value="{LD}" domi="0.0"/>
+        <param name="VS" value="{VS}" domi="0.0"/>
+        <param name="VO" value="-0.1000" domi="0.0"/>
+        <param name="WC" value="0.0000" domi="0.0"/>
+        <param name="TCX" value="{TCX}" domi="0.0"/>
+        <param name="TCY" value="{TCY}" domi="0.0"/>
+        <param name="TTX" value="{TTX}" domi="0.0"/>
+        <param name="TTY" value="{TTY}" domi="0.0"/>
+        <param name="TBX" value="{TBX}" domi="0.0"/>
+        <param name="TBY" value="{TBY}" domi="0.0"/>
+        <param name="TRX" value="-1.8530" domi="0.0"/>
+        <param name="TRY" value="-1.7267" domi="0.0"/>
+        <param name="TS1" value="{TS1}" domi="0.0"/>
+        <param name="TS2" value="{TS2}" domi="0.0"/>
+        <param name="TS3" value="{TS3}" domi="0.0"/>
+        <param name="TS4" value="{TS4}" domi="0.0"/>
+        <param name="MA1" value="0.0000" domi="0.0"/>
+        <param name="MA2" value="0.0000" domi="0.0"/>
+        <param name="MA3" value="0.0000" domi="0.0"/>\n      </shape>\n""".format(**dic)
+		
+		
 		# Put the insertion in the right place
 		# --------------------------------------------------------------------------------------------
-		f = open(self.speaker_path,'r+')
-		lines = f.readlines()
-	
-		searchstring = '<shape name="%s">'%self.gesture
 		
-		try:
-			startline = [line for line in lines if searchstring in line][0]
-			found_shape = True
-		except IndexError:
-			found_shape = False
-
-		if found_shape:
-			start = lines.index(startline)
-			end = start + 25
-			#if the shape is already contained in the file, we'll have to delete it first
-			del lines[start:end+1]
-		else:
-			line_bfore = [line for line in lines if '</anatomy>' in line][0]
-			start = lines.index(line_bfore) + 2
-
-		lines.insert(start,insertion) # Insert before start
-		f.seek(0) # Start at the beginning
-		f.write("".join(lines)) # Overwrite with the (now joined) stringlist
-		f.close()
+		
+		
+		with open(self.speaker_path,'r+') as f:
+			lines = f.readlines()
+			
+			searchstring = '<shape name="%s">'%self.gesture
+		
+			try:
+				startline = [line for line in lines if searchstring in line][0]
+				found_shape = True
+			except IndexError:
+				found_shape = False
+		
+			if found_shape:
+				start = lines.index(startline)
+				end = start + 25
+				#if the shape is already contained in the file, we'll have to delete it first
+				del lines[start:end+1]
+			else:
+				line_bfore = [line for line in lines if '</anatomy>' in line][0]
+				start = lines.index(line_bfore) + 2
+			
+			lines.insert(start,insertion) # Insert before start
+			"""
+			# Get rid of empty lines at the end of the speaker file..
+			# --------------------------------------------------------------
+			while True:
+				line = lines[-1].strip()
+				if line == '':
+					lines.pop()
+				else:
+					break
+			"""
+			f.seek(0)
+			f.write("".join(lines)) # Overwrite with the (now joined) stringlist
+			f.truncate()
+			
+			if int(len(lines)/600) > 1:
+				raise RuntimeError("Speaker files getting too long! Read/write problem, which I thought I had solved..")
 	
 	
 	

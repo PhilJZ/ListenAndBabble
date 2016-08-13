@@ -12,7 +12,7 @@
 # Class imports
 # -------------------------------------------------------
 	# Import the class containing the parameters and arguments for this function.
-from parameters.get_params import parameters as params
+from control.get_params import parameters as params
 	# Import the class containing Vocal Tract Lab API (for synthesizing speaker-gesture sounds)
 from src.VTL_API.api_class import VTL_API_class
 synthesize = VTL_API_class() #"synthesize is-a VTL_API_class"
@@ -27,7 +27,6 @@ import pickle										# for saving the class in a file later
 import random
 import numpy
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 import fileinput
 import runpy
 	#Importing modules used to process sound
@@ -620,8 +619,13 @@ class functions(params):
 			for vowel in self.vowels:
 				if (self.pars_rel[vowel][speaker,:]<0).any()  or (self.pars_rel[vowel][speaker,:]>1).any():
 					print "Relative Parameters bejond boundaries [0,1]!"
-					raise RuntimeError("Please check gesture %s of speaker %s again in VTL"%(vowel,speaker))
-		
+					#raise RuntimeError("Please check gesture %s of speaker %s again in VTL"%(vowel,speaker))
+					raw_input("Adjust relative parameters? (if not: ctrl+c)")
+					
+					clip_these = self.pars_rel[vowel][speaker,:]<0
+					self.pars_rel[vowel][speaker,clip_these] = 0
+					clip_these = self.pars_rel[vowel][speaker,:]>1
+					self.pars_rel[vowel][speaker,clip_these] = 1
 
 		
 		
@@ -816,9 +820,9 @@ class functions(params):
 					formants = pfp.formants_at_interval(self.output_paths[vowel][speaker][0], 0.08,1)
 					
 					# Compute mean across time window
-					formants_mean = numpy.mean(formants,axis=0)
+					formants_median = numpy.median(formants,axis=0)
 					# stack..
-					self.male_formants[vowel] = numpy.vstack((self.male_formants[vowel],formants_mean))
+					self.male_formants[vowel] = numpy.vstack((self.male_formants[vowel],formants_median))
 				
 				self.male_formants[vowel] = self.male_formants[vowel][1:,:]
 
@@ -865,9 +869,9 @@ class functions(params):
 					# Extract a list of measured formants (f0,f1,f2,f3) in the time-window (0.01 gaps)
 					formants = pfp.formants_at_interval(self.output_paths[vowel][speaker][0], 0.08,1)
 					# Compute mean across time window
-					formants_mean = numpy.mean(formants,axis=0)
+					formants_median = numpy.median(formants,axis=0)
 					# stack..
-					self.female_formants[vowel] = numpy.vstack((self.female_formants[vowel],formants_mean))
+					self.female_formants[vowel] = numpy.vstack((self.female_formants[vowel],formants_median))
 				
 				self.female_formants[vowel] = self.female_formants[vowel][1:,:]
 				
@@ -920,8 +924,8 @@ class functions(params):
 				scatters = []
 				for vowel in self.vowels_with_schwa:
 					#The things we want to plot..
-					x = [self.male_formants[vowel][:,1],self.female_formants[vowel][:,1]]#F1
-					y = [self.male_formants[vowel][:,2],self.female_formants[vowel][:,2]]#F2
+					x = numpy.append(self.male_formants[vowel][:,1],self.female_formants[vowel][:,1])#F1
+					y = numpy.append(self.male_formants[vowel][:,2],self.female_formants[vowel][:,2])#F2
 					
 					
 #					# F1-F2 ?
@@ -1609,9 +1613,9 @@ class functions(params):
 				# Extract a list of measured formants (f0,f1,f2,f3) in the time-window (0.01 gaps)
 				formants = pfp.formants_at_interval(sample_path, 0.08,1)
 				# Compute mean across time window
-				formants_mean = numpy.mean(formants,axis=0)
+				formants_median = numpy.median(formants,axis=0)
 				# stack..
-				self.samp_formants[vowel] = numpy.vstack((self.samp_formants[vowel],formants_mean))
+				self.samp_formants[vowel] = numpy.vstack((self.samp_formants[vowel],formants_median))
 				
 					
 			#Get rid of f0 and zero-rows in the beginning
@@ -1752,7 +1756,7 @@ class functions(params):
 									            #  between 100 and 8000 Hz
 			drnl_filter = DRNL(sound, cf, type='human')
 									            # use DNRL model, see documentation
-			print 'processing sound'
+			
 			out = drnl_filter.process()           # get array of channel activations
 			if sampling['compressed']:
 				out = out.clip(0.0)                    # -> fast oscillations can't be downsampled otherwise
@@ -1760,13 +1764,13 @@ class functions(params):
 					            # downsample sound for memory reasons
 			return out
 
-
+		
 
 		# Process sound for the learning
 
 		# load sound file for brian.hears processing
 		sound = loadsound(path)
-		sound = correct_initial(sound)      # call correct_initial to remove initial burst
+		#sound = correct_initial(sound)      # call correct_initial to remove initial burst
 
 		sound_resampled = get_resampled(sound)
 											# call get_resampled to adapt generated sound to AN model

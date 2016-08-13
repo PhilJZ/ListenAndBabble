@@ -94,27 +94,27 @@
         <param name="MA3" value="0.0000" domi="100.0"/>
       </shape>
       <shape name="input">
-        <param name="HX" value="0.827749752478" domi="100.0"/>
-        <param name="HY" value="-3.17148813961" domi="100.0"/>
+        <param name="HX" value="0.907109822242" domi="100.0"/>
+        <param name="HY" value="-3.21403176145" domi="100.0"/>
         <param name="JX" value="-0.2000" domi="100.0"/>
-        <param name="JA" value="-4.35274791306" domi="100.0"/>
-        <param name="LP" value="0.681714772248" domi="100.0"/>
-        <param name="LD" value="0.838234512487" domi="100.0"/>
-        <param name="VS" value="0.411797673764" domi="100.0"/>
+        <param name="JA" value="-4.03425813751" domi="100.0"/>
+        <param name="LP" value="0.999987630259" domi="100.0"/>
+        <param name="LD" value="0.342108223488" domi="100.0"/>
+        <param name="VS" value="0.58857897846" domi="100.0"/>
         <param name="VO" value="-0.1000" domi="100.0"/>
         <param name="WC" value="0.0000" domi="100.0"/>
-        <param name="TCX" value="-0.0293008900511" domi="100.0"/>
-        <param name="TCY" value="-0.454658095052" domi="100.0"/>
-        <param name="TTX" value="2.16569726089" domi="100.0"/>
-        <param name="TTY" value="-1.14310398444" domi="100.0"/>
-        <param name="TBX" value="0.989936204402" domi="100.0"/>
-        <param name="TBY" value="-0.0802606963767" domi="100.0"/>
+        <param name="TCX" value="0.360821971194" domi="100.0"/>
+        <param name="TCY" value="-0.594038077623" domi="100.0"/>
+        <param name="TTX" value="2.00861348063" domi="100.0"/>
+        <param name="TTY" value="-1.00147585598" domi="100.0"/>
+        <param name="TBX" value="1.82882946092" domi="100.0"/>
+        <param name="TBY" value="-0.157062474806" domi="100.0"/>
         <param name="TRX" value="-1.8530" domi="100.0"/>
         <param name="TRY" value="-1.7267" domi="100.0"/>
-        <param name="TS1" value="0.73555316474" domi="100.0"/>
-        <param name="TS2" value="-0.501279112468" domi="100.0"/>
-        <param name="TS3" value="0.466361133528" domi="100.0"/>
-        <param name="TS4" value="0.0520867015445" domi="100.0"/>
+        <param name="TS1" value="0.52429857242" domi="100.0"/>
+        <param name="TS2" value="0.168037613087" domi="100.0"/>
+        <param name="TS3" value="0.0515635643725" domi="100.0"/>
+        <param name="TS4" value="-0.0183401342163" domi="100.0"/>
         <param name="MA1" value="0.0000" domi="100.0"/>
         <param name="MA2" value="0.0000" domi="100.0"/>
         <param name="MA3" value="0.0000" domi="100.0"/>
@@ -629,143 +629,6 @@
     </glottis_model>
   </glottis_models>
 </speaker>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

@@ -4,15 +4,9 @@ A shell for calling source code which..
 	-trains the ESN network ("hear")
 	-and babbles away, exploring vocal tract parameters and learning specific syllables ("learn")
 Author: Max Murakami and Philip Zurbuchen
-
-
-On MPI run as follows:
--------------------------------------------------------------------
-$ salloc -p sleuths -n (lambda/int) mpirun python shell.py
--------------------------------------------------------------------
 """
 
-# General imports
+# General imports for this shell script.
 # -----------------------------------------------------------------
 import sys
 import os
@@ -28,14 +22,38 @@ if my_path not in sys.path:
 #print sys.path
 # -----------------------------------------------------------------
 
-
-
-# Write standard output of our programme written into a text file in the results directory.
+# Parameter import
+# -----------------------------------------------------------------
 """
-os.remove("results/shell_output.out")
-f = open("results/shell_output.out", 'w')
-sys.stdout = f
+Shell is steered using a parameter file (control/get_params.py). In this file, all control parameters for
+each stage (ambient speech, hear and learn) are found and changed. This enables minimal interaction with the
+code itself.
+In this script, we only need to know, this basic steps we should execute. 	Should we produce ambient speech, or hear, or both?
+																			.. or do we have a trained auditory system, and just want
+																			to learn? > Set the corresponding parameters "True" or "False"
+																			in the parameter script itself.
+																		
+Importing all the parameters would look like this:
+		
+		from control.get_params import parameters as params
+		params.__init__(self)
+		self.get_learn_params()
+		self.get_hear_params()
+		self.get_ambient_speech_params()
+		
+For now, we only need what is defined in __init__(self) of params.
 """
+
+# Import parameters class
+from control.get_params import parameters as params
+
+# Initialize parameters class
+params_inst = params()
+
+print "Shell calls 3 main scripts:"
+print "Execute main script 'ambient_speech'? 	: "+str(params_inst.execute_main_script['ambient_speech'])
+print "Execute main script 'hear'? 	: "+str(params_inst.execute_main_script['hear'])
+print "Execute main script 'learn'? : "+str(params_inst.execute_main_script['learn'])
 
 
 # Setting up Parallel computing, using MPI for python.
@@ -68,44 +86,42 @@ from src.learn.learn import learn as learn_class
 
 
 
+if params_inst.execute_main_script['ambient_speech']:
+	# Set up and / or analyze a group of speakers serving as ambient speech for the ESN network (used in the hearing stage)
+	# ---------------------------------------------------------------------------------------------------------------------
+	ambient_speech_inst = ambient_speech_class() 				#Inherit
 
-# Set up and / or analyze a group of speakers serving as ambient speech for the ESN network (used in the hearing stage)
-# ---------------------------------------------------------------------------------------------------------------------
-#ambient_speech_inst = ambient_speech_class() 				#Inherit
-
-##########################
-#ambient_speech_inst.main()
-##########################
-
-
-
-
-
-
-# Perform the ESN learning (train the network to classify speech sounds).
-# ---------------------------------------------------------------------------------------------------------------------
-hear_inst = hear_class()
-
-##########################
-hear_inst.main()
-##########################
+	##########################
+	ambient_speech_inst.main()
+	##########################
 
 
 
 
 
 
-# Babble away..
-# ---------------------------------------------------------------------------------------------------------------------
-#learn_inst = learn_class()
+if params_inst.execute_main_script['hear']:
+	# Perform the ESN learning (train the network to classify speech sounds).
+	# ---------------------------------------------------------------------------------------------------------------------
+	hear_inst = hear_class()
 
-##########################
-#learn_inst.main()
-##########################
+	##########################
+	hear_inst.main()
+	##########################
 
 
 
 
+
+
+if params_inst.execute_main_script['learn']:
+	# Babble away..
+	# ---------------------------------------------------------------------------------------------------------------------
+	learn_inst = learn_class()
+
+	##########################
+	learn_inst.main()
+	##########################
 
 
 
@@ -117,6 +133,12 @@ hear_inst.main()
 
 
 
+
+print 30*"-"
+print "All shell scripts executed!"
+print 30*"-"
+print 30*"-"
+print "\n\n"
 
 
 """

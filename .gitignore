@@ -1,5 +1,6 @@
 /data/output/*
 /data/classes/*
+/data/speakers_gestures/*
 /results/*
 *.ges
 *.py~

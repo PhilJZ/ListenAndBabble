@@ -9,9 +9,9 @@ from src.learn.learn_functions import functions as funcs
 
 
 # General Imports
-
-
-
+import time
+import pickle
+from os import system
 
 
 
@@ -25,19 +25,10 @@ class learn(funcs):
 
 	This code refers to "The CMA Evolution Strategy: A Tutorial" by 
 	Nikolaus Hansen (Appendix C).
-
-
-	Of the old version:
-	# usage:
-	#  $ salloc -p sleuths -n (lambda/int) mpirun python rl_agent_mpi.py [-v] [-n (n_samples/int)] [-f (folder/str)] [-t (target/str)]
-	#	 [-p (parameters/str)] [-s (sigma/float)] [-i] [-N (self.n_targets/int)] [-m] [-I] [-T (threshold/float)] [-P] [-e (energy_factor/float)]
-	#	 [-a (alpha/float)] [-F]
-
-	# thesis settings:
-	#   salloc -p sleuths -n 100 mpirun python rl_agent_mpi.py -f default_output_folder -p all -i -m -I -r -o -A -w -c
-	
-	
+		
 	- changed and adapted by Philip Zurbuchen 2016.
+	
+	Original code my Max Murakami 2014
 	"""
 	
 	
@@ -55,23 +46,31 @@ class learn(funcs):
 		# Preparation..
 		# -----------------------------------------------------------------
 	
-		if self.rank == 0:
-			print "\n"
-			print 80*"-"
-			print "Setting up / cleaning up used directories.."
-			print " -- >  calling setup_folders"
-			self.setup_folders()
-			print 80*"-"
-	
-	
 		
-			print "\n"
-			print 80*"-"
-			print "Master sets up the writing files.."
-			print " -- >  calling open_result_write"
-			#self.open_result_write()
-			print 80*"-"
+		print "\n"
+		print 80*"-"
+		print "Welcome to 'learn' \n- A reinforcement learner who uses the Auditory System (ESN) produced in 'hear' to learn speech gestures."
+		print "The Speech Parameters (16 of them) are as follows: "
+		print self.par_names
+		print 80*"-"
+			
 	
+		print "\n"
+		print 80*"-"
+		print "Setting up / cleaning up used directories.."
+		print " -- >  calling setup_folders"
+		self.setup_folders()
+		print 80*"-"
+
+
+	
+		print "\n"
+		print 80*"-"
+		print "Master sets up the writing files.."
+		print " -- >  calling open_result_write"
+		#self.open_result_write()
+		print 80*"-"
+
 	
 		print "\n"
 		print 80*"-"
@@ -98,24 +97,13 @@ class learn(funcs):
 		
 		
 		
-		for i_trial in xrange(self.n_trials):
-			
-			
-			# The reinforcement learning is done quite differently, if we have more than one workers. First, look
-			# at the case of the master (rank==0). If we have more than one workers, the rest will act as slaves, 
-			# performing generation sampling (see else:)
-			# If there's only one worker anyway, that worker will be rank == 0, master.
-			if self.rank==0:
-				
-				# Perform CMA-ES. 
-				x_min = self.cmaes()
-				
-			else:
-			
-				# If slave worker: Only sample, and return confidences etc. to the master
-				#self.generation_sampling()
-				pass
-				
+		print "\n"
+		print 80*"-"
+		print "Performing CMA-ES.."
+		print " -- >  calling cmaes()"
+		result_dict = self.cmaes()
+		print 80*"-"
+
 				
 				
 		print "\n"
@@ -127,8 +115,19 @@ class learn(funcs):
 		f.close()
 		print 80*"-"	
 		
+		
+		
+		print "\n"
+		print 80*"-"
+		print "Moving peak-data into results folder.."
+		system('mv data/output/learn/current_peak results/learn')
+		print 80*"-"
+		
 	
-	
+		print "\n"
+		print 80*"-"
+		print "Thankyou for using the reinforcement learner! You can find your results in results/learn/...!"
+		print 80*"-"	
 	
 	
 	

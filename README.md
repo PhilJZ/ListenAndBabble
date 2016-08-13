@@ -1,7 +1,7 @@
 		
 
-		ListenAndBabble (forked repo): Introduction
-		------------------------------------------------------
+#ListenAndBabble (forked repo): Introduction
+------------------------------------------------------
 
 Attention: This repository is still work in progress.
 
@@ -17,16 +17,15 @@ Also, a whole new step was added to the project: "ambient speech" which
 	of shape parameters (like 'toungue position when saying /a/') and 
 	of the speech sounds themselves (e.g. plotting vowels in formant space).
 
+Much of the code from the original repo has been compartmentalized, making it easier for a user to find his/her way around the code.
+
+A small documentation of the code follows the SETUP chapter (where all the required python packages are listed, in order that the code works).
 
 
 
 
-
-
-
-
-		SETUP:
-		------------------------------------------------------
+SETUP:
+------------------------------------------------------
 
 
 The code is written in Python 2.7 and was tested in Ubuntu 16.04. Apart from standard Python libraries, it requires:
@@ -34,7 +33,7 @@ The code is written in Python 2.7 and was tested in Ubuntu 16.04. Apart from sta
 - [numpy](http://sourceforge.net/projects/numpy/files/NumPy/)
 - [scipy](http://sourceforge.net/projects/scipy/files/scipy/)
 - [matplotlib](http://matplotlib.org/downloads.html)
-#Install all three opening a terminal and typing:
+Install all three opening a terminal and typing:
 >> sudo apt-get install python-numpy python-scipy python-matplotlib
 
 - [brian](http://brian.readthedocs.org/en/latest/installation.html)
@@ -42,7 +41,7 @@ The code is written in Python 2.7 and was tested in Ubuntu 16.04. Apart from sta
 
 - [Oger](http://reservoir-computing.org/installing_oger)
 >> sudo apt-get install python-mdp  #Getting a dependency
-#Unpack tarball after downloading from website (see above)
+Unpack tarball after downloading from website (see above)
 >> cd [unpacked-directory]
 >> sudo python setup.py install
 
@@ -51,66 +50,54 @@ The code is written in Python 2.7 and was tested in Ubuntu 16.04. Apart from sta
 >> easy_install joblib
 
 - [docopt](https://pypi.python.org/pypi/docopt) [not used anymore in this fork]
-# no need to install
+(no need to install)
 
-#The following two dependencies are replaceable, as soon as a VTL version comes out that outputs formants of speech sounds. As for now, we get our formants using praat, and praat_formants_python
+The following two dependencies are replaceable, as soon as a VTL version comes out that outputs formants of speech sounds. As for now, we get our formants using praat, and praat_formants_python
 - [praat](http://www.fon.hum.uva.nl/praat/download_linux.html)
 >> sudo apt install praat
 
 - [praat_formants_python](https://github.com/mwv/praat_formants_python)
-#Unpack tarball (download from git repo)
+Unpack tarball (download from git repo)
 >> cd [unpacked-directory]
 >> sudo python setup.py install
 
+For some of the plotting, I used 'plotly'. In order to use plotly, you have to install, and register (free)!
+- [plotly](https://plot.ly/python/getting-started)
+Otherwise, deactivate those plots.
+
+
 
 Additionally, you'll need the VocalTractLab API for Linux, which you can download [here](http://vocaltractlab.de/index.php?page=vocaltractlab-download).
-After downloading it, extract the VocalTractLabApi.so into the src/VTL_API subfolder. (should already be there, though)
+After downloading it, extract the VocalTractLabApi.so into the src/VTL_API subfolder.
 
-
-Scripts are executed from the shell.py script. On first execution, uncomment the part where the directory (where you saved your fork of the project) is added to sys.path (including subfolders).
-
-Parameters are in the parameter file in params. Edit these if you want to change things (e.g. if you only want to learn one vowel).
+If the user wishes to create and manipulate speakers of his/her own, she/he must download the whole Vocaltractlab program (same link). (Works on windows. Executable on linux using 'wine').
 
 
 
-
-
-
-
-
-
-		WHAT 'ListenAndBabble' DOES:
-		------------------------------------------------------
+#WHAT 'ListenAndBabble' DOES:
+------------------------------------------------------
 
 The project currently contains 3 steps: 'ambient_speech', 'hear' and 'learn'
 
 		ambient_speech
-'ambient_speech' sets up a group of speakers (created in VTL_API) for the next steps.
-	Notes: 	New speaker groups (standard: srangefm "speaker range (from 0-20yrs) female 
-	 	and male") can be added by saving VTL-produces speakers with the same names
-	 	["0","1","2",..] and saving them in data/speakers_gestures under the new group
-	 	name. (fileage.txt has to be adjusted. see speaker documentation in that folder.)
 
-	 	Speech samples are produced. some are representative for vowels, some not.
-	 	The user must check produced samples and - if nescessary (e.g. if a classified
-	 	/a/ sample in folder data/ambient_speech/"group name"/a sounds like nothing at
-	 	 all) - relocate them to the right folder (in that case to the ../a_null folder)
+In 'ambient_speech', speaker files (created with VocalTractLab), with predefined (vowel) gestures are imported. The user can analyze the speech sounds produced by
+the speakers, and 'ambient speech' (used to train the auditory system of the reinforcement learner described in 'ListenAndBabble') is produced in the form of many
+samples (.wav files with speech sounds). These can be classified by the user and labeled with the correct label (i.e. '/a/').
 
 		hear
 'hear' listens to ambient speech samples (from first step), and trains an Echo state network to classify those sounds correctly. [Supervised learning]
 
 		learn
 'learn' applies reinforcement learning [unsupervised] in order to learn to produce "good" vowels.
-	Notes:	The learner, in this version, is simply the first
 
 
 See ... [Master thesis] for more information and suggestions for improvement / extensions of this project.
 
-Enjoy!
 
 
-		A typical experiment guide..
-		------------------------------------------------------
+#A typical experiment guide..
+------------------------------------------------------
 
 1. 	Create a series of speakers of various ages, using VocalTractLab. (Run .exe on Windows, or over wine on Linux.) 
 	These, obviously, will have different anatomies. That means, we have to find the right positions for all shape parameters (tongue position, lip, etc).
@@ -123,20 +110,54 @@ Enjoy!
 	
 3.	Use the prototypes to guide you in making (often nescessary) changes in your shapes.
 	
-4.	When you are sure about your prototypes, create sample sounds based on those prototypes (much the same formats, only more than one sample per speaker. These samples are not exactly
-	like the prototype sounds.
+4.	When you are sure about your prototypes, create sample sounds based on those prototypes (gaussian sampling of the parameters used to create the prototype speech).
+
+6.  Now, since 'hear' works with supervised learning: Label all those samples with the right vowel name. 'user_sort_samples' in ambient_speech_functions.
 	
-5.	Train the ESN with mult. ESNs of the same sizes > Determine best size.
+5.	Use 'hear' to train the ESN with mult. ESNs of different sizes > Determine best.
 
-6.	Train ESNs until you get a good one.
+6.	Train ESNs of best size until you get a good one.
 
-7.	Learn
+7.	Using 'learn', use reinforcement learning to learn to reproduce good sounds. The learner can be one of the speakers you created in your speaker group (usually, the youngest, or speaker 0).
+	Check the progress in data/output/learn, where you can listen to the best of each produced vowels. In results/learn/ you can see the current progress of the learning for each vowel.
 	
 	
 
 
-		Source code documentation..
-		------------------------------------------------------
+#Source code documentation..
+#------------------------------------------------------
+
+		Architecture
+First, we must understand how the code is structured. To make this easier to comprehend, I applied the same structure to the task of computing the square root of some arbitrary number. A pdf presenting the code and explaining the structure is found in the subfolder control. This project is basically structured in the same way (though more complicated). Each step (ambient speech, hear, learn) of the project is executed from the shell (.py) and controlled from _control/get params.py_ by the user.
+The actual functions, - what actually happenes, are found in (e.g.) src/ambient-speech/ambient-speech-_functions_. Each of those functions are called from one level higher, the script ambient-speech.py (in the same directory). This script, in turn, is called from the shell.
+
+
+		Parallelization
+This branch is not sep up for parallelisation. Executing ambient_speech and hear in parallel doesn't seem worth the effort. However, doing the reinforcement learning on a cluster seems reasonable (as in the original branch). Though not implemented, what seems best is to do the following:
+
+In learn_functions:
+
+The generations could be assessed in a parallel way.
+(Steps: evaluation, environment, get_confidence)
+These steps could be written in a separate skript which would take parameters like x_mean as arguments, and return confidences.
+The rest (cma-es learning loop) would not be run in parallel. 
+Then, this separate script could be executed using os.system from the cma-es while loop. Like this, for example:
+os.system('salloc -p sleuths -n (lambda/int) mpirun python [name of script, that imcorporates evaluation, environment and confidence].py [arguments] ... ')
+
+
+		Further documentation
+I tried my best to document the code itself extensively where needed. Knowing the project architecture well will also help to understand the code. I advise to read the shell script, then, also most control parameters in control/get-params.py are commented on. Reading the main step scripts ('ambient-speech.py', 'hear.py', 'learn.py') will tell the user, WHICH function is executed WHEN.
+
+
+		Speaker groups documentation
+The subfolder data/[backups VTL speaker groups contains a speaker group documentation (.txt file). In it some information on the speaker group (age of speakers, pitch, ..) - and how to use the speaker files in the code.
+
+
+
+
+
+
+
 
 
 

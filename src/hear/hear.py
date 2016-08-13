@@ -62,7 +62,7 @@ class hear(funcs):
 			print('averaging over', self.n_trains, 'trials')
 			print('network size:', self.reservoir_sizes)
 			print('using compressed DRNL output:', self.compressed_output)
-			print('comparing leaky network to non-leaky network:',self.include_nonleaky)
+			print('comparing leaky network to non-leaky network:',self.do_compare_leaky)
 			print('verbose mode:', self.verbose)
 			print('plot mode:', self.do_plot_hearing)
 			print 80*"-"
@@ -71,65 +71,21 @@ class hear(funcs):
 		# Make reservoir states inspectable for plotting..
 		self.make_Oger_inspectable()
 		
-
-		# 2 options: (if / else)
-		
-		# A Test speaker generalisation (how well the ESN can generalize from other speakers, if one/some speaker(s)
-		# 	are omitted from training)
-		# -----------------------------------------------------------------------------------------------------------------------
-		if self.do_sweep_omitted_speakers:
-		# -----------------------------------------------------------------------------------------------------------------------
-			
-			self.do_plot_hearing = False # Turn off plotting the prototypes every single time.
-			
-			
-			for speaker_group in self.omitted_groups:
-				self.omitted_test_speakers = list()
-				self.omitted_test_speakers = speaker_group
-				
-				print "\n\nSampling and learning from all speakers exept %s"%str(self.omitted_test_speakers)
-				print "-----------------------------------------------------------------------------\n"
-				
-				self.get_samples()
-								
-				self.simulate_ESN()
-				
-				if self.rank == 0:
-					self.master_collect_and_postprocess(choose=False) # SEE BELOW.
-				
-				self.error_matrix['leaky'] = numpy.vstack((self.error_matrix['leaky'],self.final_errors['leaky']))
-				self.error_matrix['non-leaky'] = numpy.vstack((self.error_matrix['leaky'],self.final_errors['non-leaky']))
-				
-			self.error_matrix['leaky'] = self.error_matrix['leaky'][1:,:]
-			self.error_matrix['non-leaky'] = self.error_matrix['non-leaky'][1:,:]
-			
-			
-			# Plotting the error matrix:
-			
-			self.plot_error_matrix()
-		
-		
-		# B The normal case: Simulate ESN and pick the best one. Plot results if wanted.
-		# -----------------------------------------------------------------------------------------------------------------------	
-		#else:
-		self.do_plot_hearing = True
-		self.omitted_test_speakers = []
-	
 		
 		# Get all the samples produced in ambient speech..	
 		self.get_samples()
-
-
+	
+	
 		# Simulate ESN (basically the main function, which then in itself calls the interesting function 'learn')..
 		self.simulate_ESN()	
-
-
-		if self.rank == 0:
-			self.master_collect_and_postprocess(choose=False) # SEE BELOW.
-		# -----------------------------------------------------------------------------------------------------------------------
 		
-		"""
-		# Partial ESN analysis as in what samples are chosen. See get_params. This is quite complicated and not yet fully written.
+		
+		if self.rank == 0:
+			self.master_collect_and_postprocess(choose=False) # SEE BELOW. Set choose True if you want to chose one of the produced ESNs for learning (essentially rename it).
+		
+		
+		
+		# Partial ESN analysis. See get_params.
 		if self.do_partial_ESN_analysis:			
 			# Basically run through most of what we've done already, but for different sample data.
 			# --------------------------------------------------------------------------------------------------------------
@@ -165,7 +121,7 @@ class hear(funcs):
 			
 			self.threshold_analysis()
 		
-		"""
+		
 		
 			
 			
@@ -193,14 +149,14 @@ class hear(funcs):
 		"""
 		if self.n_workers > 1:
 			self.final_errors['leaky'] = comm.gather(self.errors['leaky'], root=0)
-			self.final_errors['non-leaky'] = comm.gather(self.errors['non-leaky'], roo=0) if self.include_nonleaky else []
+			self.final_errors['non-leaky'] = comm.gather(self.errors['non-leaky'], roo=0) if self.do_compare_leaky else []
 			self.final_cmatrices['leaky'] = comm.gather(self.c_matrices['leaky'], root=0)
-			self.final_cmatrices['non-leaky'] = comm.gather(self.c_matrices['non-leaky'], root=0) if self.include_nonleaky else []
+			self.final_cmatrices['non-leaky'] = comm.gather(self.c_matrices['non-leaky'], root=0) if self.do_compare_leaky else []
 		else:
 			self.final_errors['leaky'] = self.errors['leaky']
-			self.final_errors['non-leaky'] = self.errors['non-leaky'] if self.include_nonleaky else []
+			self.final_errors['non-leaky'] = self.errors['non-leaky'] if self.do_compare_leaky else []
 			self.final_cmatrices['leaky'] = self.c_matrices['leaky']
-			self.final_cmatrices['non-leaky'] = self.c_matrices['non-leaky'] if self.include_nonleaky else []
+			self.final_cmatrices['non-leaky'] = self.c_matrices['non-leaky'] if self.do_compare_leaky else []
 	
 		# Post-processing only by master (write results to a file)
 	
@@ -212,8 +168,8 @@ class hear(funcs):
 			self.choose_final_ESN()
 
 			# Analyze reward threshold (after choosing).
-			#if self.do_analyze_output_ESN:
-			#	self.threshold_analysis()
+			if self.do_analyze_output_ESN:
+				self.threshold_analysis()
 		
 
 	

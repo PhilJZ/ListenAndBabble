@@ -3,11 +3,11 @@
 
 # Class imports
 	# Import the class containing the parameters and arguments for this function.
-from parameters.get_params import parameters as params
+from control.get_params import parameters as params
 
 	# Import VTL_API needed.
 from src.VTL_API.api_class import VTL_API_class
-	#	.. make a class instance, or: "synthesize is-a VTL_API_class"
+	#	.. make a class instance, or: "synthesize is-a VTL_API_class" before calling main.
 	#	Call synthesize like this: synthesize.main(input_dict,paths)
 synthesize = VTL_API_class()
 
@@ -15,14 +15,13 @@ synthesize = VTL_API_class()
 # General imports
 import os
 from os import path,system,listdir
-import matplotlib
-matplotlib.use('Agg')				  # for use on clusters
+import matplotlib.pyplot as plt
+
 import numpy
 from numpy.linalg import norm
 import argparse
 
 import Oger
-import pylab
 
 from brian import kHz, Hz, exp, isinf
 from brian.hears import Sound, erbspace, loadsound, DRNL
@@ -36,11 +35,10 @@ import datetime
 from datetime import date
 from time import *
 
-from collections import deque
-
 import cPickle
 import pickle
 import random
+from copy import deepcopy
 
 # Python debugger
 from pdb import set_trace as debug
@@ -51,11 +49,58 @@ class functions(params):
 	"""
 	Provides functions, called in "src/learn/learn.py"
 	Includes main learning function for the Echo State Network.
+	
+	As with all functions that are called through a main function ('learn.py' in this case) from our shell function, this program is
+	controlled using control parameters in 'get_params.py' - in the learning section. The idea is to have all parameters neatly in one
+	place, and to save the parameter file along with the results.
+	
+	In order to understand what happens, we have to understand the structure of the code.
+	
+	Some segments are commented but could be build in in order to learn with multiple workers. The basic idea would be to
+	leave the generation sampling to many workers, then do the main cmaes loop with the master worker.
+	
+	
+	First group of functions 
+		..are basically part of the setup. (e.g. __init__(), setup_folders(), etc.) They are all called before the actual reinforcement learning starts.
+			
+			Here, we initialize the parameters of the learner (from parameters gathered in ambient_speech), set up paths,
+			get the ideal size of the population of samples generated in the second group of functions..
+	
+	
+	
+	
+	
+	Second group of functions:
+		- CMA-ES Master function, which calls:  (cmaes() is called from 'learn.py' after the first group of functions)
+		
+			- "evaluation(...)" (creates a generation of samples for a certain x_mean. evaluates the reward), - this function in turn 
+																													calls the next one:
+																													
+				- "environment(...)" (gets called for each sample in 'evaluation'), produces sound , calling the VocalTractLab API over a 
+																						small function, api_class (in src/VTL_API/api_class.py)
+																						
+					- "get_confidence(...)" Gets the confidence levels for a given sample. Confidence between 0 and 1 for each class.
+																							These confidences are then passed to environment, then
+																							to evaluation, then to the main cmaes() function, where
+																							we compute a reward for each sample (called fitness),
+																							using the confidences.
+					
+	
+	
+	Third group of functions: 
+		- Smaller help function to update learner parameters, get next targets etc., called from the cmaes algorithm.
+		- Smaller plot and output functions.
+		
+		
+	Author:
+	Max Murakami, Philip Zurbuchen
+	
+	
 	"""
 
 	
 	#############################################################################################################################################
-	# Functions called directly from 'learn' ####################################################################################################
+	# Functions called directly from 'learn' (setup) ############################################################################################
 	#############################################################################################################################################
 
 	def __init__(self):
@@ -88,6 +133,8 @@ class functions(params):
 			if '@' in self.targets:
 				self.targets.pop(self.targets.index('@'))
 		
+		self.target_index = self.targets.index(self.target)
+		
 		# Targets will be moved to this array when learnt:
 		self.targets_learnt = []
 		self.n_targets = len(self.targets)
@@ -97,29 +144,6 @@ class functions(params):
 			self.vowels.append('@')
 		# That mean, we want /schwa/ in vowels but not in targets!	
 		
-		
-			# 1. Take over target parameters (dict format) of all vowels from the ambient speech setup.
-			# 2. Get schwa parameters as neutral position (used for energy cost etc.)
-		self.target_pars = dict()
-		self.target_pars_rel = dict()
-		for vowel in self.targets:
-			self.target_pars[vowel] = self.amb_speech.pars[vowel][0,:]
-			self.target_pars_rel[vowel] = self.amb_speech.pars_rel[vowel][0,:]
-		
-			# Get schwa parameters as neutral position (used for energy cost etc.)
-		self.neutral_pars = self.amb_speech.pars['@'][0,:]
-		self.neutral_pars_rel = self.amb_speech.pars_rel['@'][0,:]
-		
-			# look up dictionary for parameter indices
-		self.par_names = self.amb_speech.par_names
-		
-		
-		# Take over the parameter-coordinate-system-transformation-function from ambient speech setup.
-			# This includes taking over upper and lower boundaries for the vowel parameters.
-		self.pars_top = self.amb_speech.pars_top[0][:]
-		self.pars_low = self.amb_speech.pars_low[0][:]
-
-		
 		# Parameters from ambient speech
 			# Get the relative pitch of our learner (will be added to abs pitch 52)
 		if type(self.learner)==int:
@@ -127,18 +151,76 @@ class functions(params):
 			index = self.learner 
 			self.learner_pitch_rel = self.amb_speech.speaker_pitch_rel[index]
 		else:
-			self.learner_pitch_rel = 5###!!!
+			raise RuntimeError('Please chose an integer for the learner. (a speaker from the speaker group)')
+			
+		
+		
+			# 1. Take over target parameters (dict format) of all vowels from the ambient speech setup.
+			# 2. Get schwa parameters as neutral position (used for energy cost etc.)
+		self.target_pars = dict()
+		self.target_pars_rel = dict()
+		for vowel in self.targets:
+			self.target_pars[vowel] = self.amb_speech.pars[vowel][self.learner,:]
+			self.target_pars_rel[vowel] = self.amb_speech.pars_rel[vowel][self.learner,:]
+		
+		# The current record fitness of each target.
+		self.peak = dict()
+		for vowel in self.targets:
+			self.peak[vowel] = (0,numpy.zeros([len(self.target_pars[vowel])]))
+		
+		
+			# Get schwa parameters as neutral position (used for energy cost etc.)
+		self.neutral_pars = self.amb_speech.pars['@'][self.learner,:]
+		self.neutral_pars_rel = self.amb_speech.pars_rel['@'][self.learner,:]
+		
+			# look up dictionary for parameter indices
+		self.par_names = self.amb_speech.par_names
+		
+		
+		# Take over the parameter-coordinate-system-transformation-function from ambient speech setup.
+			# This includes taking over upper and lower boundaries for the vowel parameters.
+		self.pars_top = self.amb_speech.pars_top[self.learner][:]
+		self.pars_low = self.amb_speech.pars_low[self.learner][:]
+		
+		
+		# Save certain parameters for every step.
+		self.reward_history = dict()
+		self.sigma_history = dict()
+		self.learner_pars_history = dict()
+		self.learner_pars_rel_history = dict()
+		for target in self.targets:
+			self.reward_history[target] = []
+			self.sigma_history[target] = []
+			self.learner_pars_history[target] = []
+			self.learner_pars_rel_history[target] = []
+			
+			
+		
 		
 		
 		# Verbosity
 		self.verbose = self.be_verbose_in['learn']
+		
+		# The stages (e.g. [8,16,32] of nr of iteration (each sample counts as an iteration!)
+		# Initialize: Zero list, for each target one entry.
+		self.iteration_stages = []
+		for i in range(len(self.targets)):
+			self.iteration_stages.append([])
+		
+		
 		
 		# Initialize paths
 		# ---------------------------------------------------------------------------------------------------------
 			# We have the same main folder, so..
 		self.base_path = self.amb_speech.base_path
 			#Get the path to the .flow file of the current auditory system
-		self.ESN_path = self.hear.ESN_output_path
+		self.ESN_path = self.base_path+self.ESN_path
+		
+			#Open flow file once! (Classifier
+		flow_file = open(self.ESN_path, 'r')   
+		self.flow = cPickle.load(flow_file)      	
+		flow_file.close()
+		
 			#Store general output, trained speaker etc. in an output_folder
 		self.output_folder = self.base_path+'/data/output/learn'
 			#Store results of the reinforement learning
@@ -147,11 +229,9 @@ class functions(params):
 			self.output_folder = self.output_folder+'/'+self.subfolder['learn']
 			self.result_folder = self.output_folder+'/'+self.subfolder['learn']
 			
-			# Where to find the learner (speaker file +'.speaker')
-		if type(self.learner)==int:
-			self.learner_path = self.base_path+'/data/speakers_gestures/srangefm/'+str(self.learner)
-		else:
-			self.learner_path = self.base_path+'/data/speakers_gestures/standard/'+self.learner
+		# Where to find the learner (speaker file +'.speaker')
+		self.learner_path = self.base_path+'/data/speakers_gestures/'+self.amb_speech.sp_group_name+'/'+str(self.learner)
+
 		
 		
 	def setup_folders(self):
@@ -161,11 +241,7 @@ class functions(params):
 		"""
 		
 		if self.rank==0:
-			#Put the learner into a separate folder
-			#-----------------------------------------------------
-			old_learner_path = self.learner_path
-			self.learner_path = self.base_path+'/data/speakers_gestures/learner/'+str(self.learner)
-			system('cp '+old_learner_path+'.speaker '+self.learner_path+'.speaker')
+			
 			
 			#Create folder Output
 			#-----------------------------------------------------
@@ -180,6 +256,8 @@ class functions(params):
 				system('rm -r '+self.output_folder+'/*')
 			else:
 				system('mkdir --parents '+self.output_folder)
+			if self.save_peak:
+				system('mkdir --parents '+self.output_folder+'/current_peak')
 			
 			#Create folder for results (plots etc.)
 			#-----------------------------------------------------
@@ -187,29 +265,8 @@ class functions(params):
 				system('mkdir --parents '+self.result_folder)
 			elif not(listdir(self.result_folder) == []):
 				system('rm -r '+self.result_folder+'/*')
-				
-			
-			
-	
-		"""
-	def open_result_write(self):
-		outputfile = outputfolder+'out.dat'
-		results = outputfolder+'results.dat'
-		os.system('rm '+outputfile)   
-		os.system('rm '+results)
-		os.system('touch '+outputfile)
-		os.system('touch '+results)
-		self.output_write = open(outputfile, 'w')
-		self.results_write = open(results, 'w')
-		
-	def close_result_write(self):
-		if self.rank==0:
-			self.output_write.close()
-			self.results_write.close()
-			for record in records:
-				record.close()
-		"""
-				
+			system('mkdir '+self.result_folder+'/snapshot')
+
 	
 	def init_par_indices_and_dimension(self):
 		"""
@@ -242,17 +299,16 @@ class functions(params):
 	def init_shape_parameters(self):
 		"""
 		- Copy target parameters
-		- Change values where we want to learn to /@/ values
+		- Change values, where we want to learn, to /@/ values (neutral)
 		"""
-		self.learner_pars = self.target_pars.copy()
-		self.learner_pars_rel = self.target_pars_rel.copy()
+		self.learner_pars = deepcopy(self.target_pars)
+		self.learner_pars_rel = deepcopy(self.target_pars_rel)
 		
+		for target in self.targets:
+			self.learner_pars[target][self.i_pars_to_learn] = self.neutral_pars[self.i_pars_to_learn]
+			self.learner_pars_rel[target][self.i_pars_to_learn] = self.neutral_pars_rel[self.i_pars_to_learn]
+
 		
-		for vowel in self.targets:
-			self.learner_pars[vowel][self.i_pars_to_learn] = self.neutral_pars[self.i_pars_to_learn]
-			self.learner_pars_rel[vowel][self.i_pars_to_learn] = self.neutral_pars_rel[self.i_pars_to_learn]
-			
-	
 	def get_population_size(self):
 		"""
 		Getting population size (lambda_). (see Hansen) 
@@ -271,27 +327,6 @@ class functions(params):
 				# list of recommended lambda values for given number of
 				#  dimenions (see Hansen)					
 			self.population_size = lambda_list[self.N_dim-1]
-	
-	
-	def save_state(self,state, flag):
-		save_file = self.output_folder+'save.'+flag
-		os.system('rm '+save_file)
-		os.system('touch '+save_file)
-		save_file_write = open(save_file, 'w')
-		cPickle.dump(state, save_file_write)
-		save_file_write.close()
-	
-
-
-	def load_saved_state(self):
-		inputfile_dynamic = open(self.load_state+'.dyn', 'r')
-		inputfile_static = open(self.load_state+'.stat', 'r')
-	   
-		self.static_params = cPickle.load(inputfile_static)
-		self.dynamic_params = cPickle.load(inputfile_dynamic)
-
-		inputfile_static.close()
-		inputfile_dynamic.close()
 
 	
 	#############################################################################################################################################
@@ -304,139 +339,59 @@ class functions(params):
 																	#
 																	#
 																	#
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
 																	#
 																	#
 																	#
 																	#
+																	#		MAIN FUNCTION STARTS HERE:
 																	#
 																	#
 																	#
-																	#	
-	#############################################################################################################################################
-	# Small function for cmaes and generation_sampling ##########################################################################################
-	#############################################################################################################################################
-	
-	def get_next_target(self):
-		# Get next target
-		# --------------------------------------------------------------------------------------------------------
-		# Example format for confidences:
-		# confidences = numpy.array([0.2(a),0.1(e),0.3(i),0.4(o)], [next generation],...] (generation)
-		# 1. Get maximal confidences across the samples in the generation, for each vowel.
-		generation_maxima = numpy.amax(self.confidences,axis=0)
-		
-		# 2. Get all learnt indices
-		i_learnt = [i for i in range(len(self.vowels)) if self.vowels[i] in self.targets_learnt]
-		
-		# 3. Get the highest non-learnt confidence, and make the index our new target index.
-		generation_maxima[i_learnt] = 0
-		self.target_index = generation_maxima.tolist().index(max(generation_maxima))
-		
-		self.target = self.targets[self.target_index]
-		
-		if self.verbose:
-			print 'confidences:', self.confidences
-			print 'targets_learnt:', self.targets_learnt
-			print 'next target:', self.target
-	
-	
-	
-	
-	
-	def update_learner_pars(self,x):
-		"""
-		Updates the shape parameters of the learner.
-		(both rel and abs)
-		"""
-		if not self.target:
-			raise RuntimeError("Cannot update learner parameters! We don't know what the current target is!")
-		params = self.target_pars_rel[self.target]
-		if self.flat_tongue:
-			for i in xrange(-4,0):
-				params[i] = 0.5
-
-		for i in xrange(len(x)):
-			params[self.i_pars_to_learn[i]] = x[i]
-		
-		
-		self.learner_pars_rel[self.target] = params
-		
-		# Call function from ambient speech in order to transform parameters from relative to absolute parameter space
-		self.learner_pars[self.target] = self.amb_speech.transf_param_coordinates('relative_to_absolute',self.learner_pars_rel[self.target],self.pars_top,self.pars_low)
-		
-		
-		
-		
-	def plot_reservoir_states(self, flow, sample_vote):
-		"""
-		Plot the states of the reservoir (and the classification strengths). This function is very similar to 'plot_prototypes' in hear_functions.
-		"""
-		
-		
-		# reservoir activity for most recent item
-		current_flow = flow[0].inspect()[0].T
-		# reservoir size
-		N = flow[0].verbose_dim
-		
-		n_subself.plots_x, n_subself.plots_y = 2, 1   # arrange two self.plots in one column
-		pylab.subplot(n_subself.plots_x, n_subself.plots_y, 1)
-		                                    # upper plot
-		y_min = y.min()
-		y_max = y.max()
-		if abs(y_min) > y_max:              # this is for symmetrizing the color bar
-			vmin = y_min                    # -> 0 is always shown as white
-			vmax = -y_min
-		else:
-			vmax = y_max
-			vmin = -y_max
-
-		class_activity = pylab.imshow(y.T, origin='lower', cmap=pylab.cm.bwr, aspect=10.0/(n_vow+1), interpolation='none', vmin=vmin, vmax=vmax)
-		                                    # plot self.verbose activations, adjust to get uniform aspect for all n_vow
-		pylab.title("Class activations")
-		pylab.ylabel("Class")
-		pylab.xlabel('')
-		ylabels = self.vowels[:]
-		ylabels.append('null')
-		pylab.yticks(range(self.n_vowels), ylabels)
-		pylab.xticks(range(0, 35, 5), numpy.arange(0.0, 0.7, 0.1))
-		cb = pylab.colorbar(class_activity)
-
-		n_subself.plots_x, n_subself.plots_y = 2, 1
-		pylab.subplot(n_subself.plots_x, n_subself.plots_y, 2)
-		                                    # lower plot
-		current_flow_min = current_flow.min()
-		current_flow_max = current_flow.max()
-		if abs(current_flow_min) > current_flow_max:
-		        vmin_c = current_flow_min   # symmetrizing color, see above
-		        vmax_c = -current_flow_min
-		else:
-		        vmax_c = current_flow_max
-		        vmin_c = -current_flow_max
-
-		reservoir_activity = pylab.imshow(current_flow, origin='lower', cmap=pylab.cm.bwr, aspect=10.0/N, interpolation='none', vmin=vmin_c, vmax=vmax_c)
-		                                    # plot reservoir states of current prototype,
-		                                    #  adjust to get uniform aspect for all N
-		pylab.title("Reservoir states")
-		pylab.xlabel('Time (s)')
-		pylab.xticks(range(0, 35, 5), numpy.arange(0.0, 0.7, 0.1))
-		pylab.ylabel("Neuron")
-		pylab.yticks(range(0,N,N/7))
-		cb2 = pylab.colorbar(reservoir_activity)
-
-		pylab.savefig(self.output_folder+'/plots/vowel_'+self.target+'_'+str(self.rank)+'.pdf')
-
-		pylab.close('all')
-	
-	
-	#############################################################################################################################################
-	#############################################################################################################################################
-																	#
-																	#
-																	#
-																	#
-																	#
-																	#
-																	#
-																	#
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
+																	
 																	#
 																	#
 																	#
@@ -450,9 +405,20 @@ class functions(params):
 	#############################################################################################################################################
 	
 	
+	
+	
+	
+	
+	
 	def cmaes(self):						# actual CMA-ES part
 		"""
-		Documentation?
+		CMA-ES:
+		See http://image.diku.dk/igel/paper/NfRLUES.pdf
+		Christian Igel. "Neuroevolution for Reinforcement Learning Using Evolution Strategies".
+		
+		http://image.diku.dk/igel/paper/NSfERL-orig.pdf
+		
+		Implemented in Code:
 		"""
 
 
@@ -460,9 +426,15 @@ class functions(params):
 
 		
 		#######################################################
-		# Initialization
+		# Loop-Parameter-Initialization
 		#######################################################
 		
+		
+		# Check whether the user specified a target to begin with. If not, random choice.
+		if not self.target:
+			self.target = random.choice(self.targets)
+		# Get target index.
+		self.target_index = self.targets.index(self.target)
 		
 		# sigma_0 is the initial sigma (always stays the same). 
 		# The learner will reset every time he runs into a local
@@ -473,7 +445,7 @@ class functions(params):
 		# with every reset. Current sigma is changed after every generation.
 		# For now, we set both sigma and current_sigma to sigma_0
 		sigma = self.sigma_0
-		current_sigma = sigma
+		current_sigma = self.sigma_0
 		
 		# initialize x_mean. x_mean is the current state of our learnt parameters.
 		# The learner_pars will be updated using x_mean.
@@ -482,16 +454,21 @@ class functions(params):
 		# For initialisation: Doesn't matter which vowel.. Used /schwa/ here.
 		# Convert to list (from numpy), in order to make it of type deque() 
 		# deque: (fast datatype, like list)
-		x_mean = self.neutral_pars_rel[self.i_pars_to_learn]
-		x_mean = deque(x_mean.tolist())
+		
+		x_mean = self.learner_pars_rel[self.target][self.i_pars_to_learn]
+		x_mean = x_mean.tolist()
 		
 		# recent x_mean
-		x_recent = deque()
+		x_recent = []
 		x_recent.append(x_mean)
 		
 		# recent fitness
-		fitness_recent = deque()
+		sorted_fitness_recent = list()
 		
+		
+		# Some variables needed for the learning.
+		# ------------------------------------------------------------------------------------------------
+			#(self.population_size is the same as lambda_ in Murakami's code.)
 		mu_ = self.population_size / 2.0			 # mu_ is float
 		mu = int(numpy.floor(mu_))		 # mu is integer = number of parents/points for recombination
 		weights = numpy.zeros(mu)
@@ -501,11 +478,14 @@ class functions(params):
 		mu_eff = sum(weights)**2 / sum(weights**2)
 										# variance-effective size of mu
 		
-		# window for convergence test
-		convergence_interval = int(10+numpy.ceil(30.0*self.N_dim/self.population_size))
+			# window for convergence test
+		if not self.user_convergence_interval:
+			convergence_interval = int(10+numpy.ceil(30.0*self.N_dim/self.population_size))
+		else:
+			convergence_interval = self.user_convergence_interval
 		i_reset = 0
 
-		# Strategy parameter setting: Adaptation
+			# Strategy parameter setting: Adaptation
 		c_c = (4.0+mu_eff/self.N_dim) / (self.N_dim+4.0+2*mu_eff/self.N_dim)
 										# time constant for cumulation for C
 		c_s = (mu_eff+2.0) / (self.N_dim+mu_eff+5.0)
@@ -527,122 +507,120 @@ class functions(params):
 		i_eigen = 0					 # for updating B and D
 		chi_N = numpy.sqrt(self.N_dim) * (1.0-1.0/(4.0*self.N_dim) + 1.0/(21.0*self.N_dim**2))
 										# expectation of ||self.N_dim(0,I)|| == norm(randn(self.N_dim,1))
-
-		# Initialize arrays
+		# ------------------------------------------------------------------------------------------------
+		
+		
+		# Initialize Fitness (reward for each sample of one generation). 
 		fitness = numpy.zeros(self.population_size)
-
-
-		#######################################################
-		# Output preparation
-		#######################################################
-
-		"""
-		self.output_write.write('initial conditions: time=('+str(datetime.datetime.now())+') N='+str(self.N_dim)+', lambda='+str(self.population_size)+', x=')
-		for x_ in x_mean:
-			self.output_write.write(str(x_)+' ')
-		self.output_write.write(', distance='+str(norm(self.learner_pars_rel-self.target_pars_rel[vowel])))
-		self.output_write.write(', sigma='+str(sigma))
-		self.output_write.write(', energy_factor='+str(self.energy_factor))
-		self.output_write.write(', alpha='+str(self.alpha))
-		self.output_write.write(', convergence_threshold='+str(self.convergence_threshold))
-		self.output_write.write(', conditioning_maximum='+str(self.conditioning_maximum))
-		self.output_write.write('\n')
-		self.output_write.write('time	sampling step   mean fitness   i_target   ')
-		for i in xrange(self.n_targets):
-			self.output_write.write('confidence['+str(i)+']   ')
-		for i in xrange(self.n_targets):
-			self.output_write.write('motor deviation['+str(i)+']   ')
-		self.output_write.write('energy_cost boundary_penalty sigma N_resampled\n')
-		"""
-		"""
-		self.static_params = [self.N_dim, self.verbose, self.learner_pars_rel, self.i_pars_to_learn, self.sigma_0, self.target_pars_rel, self.convergence_threshold, self.intrinsic_motivation, 
-			self.n_targets, self.energy_factor, self.alpha, self.output_path, self.random_restart, self.conditioning_maximum, self.flat_tongue]
-		self.save_state(self.static_params, 'stat')
-		"""
-
-		#######################################################
-		# Generation Loop
-		#######################################################
-
+		
+		
+		# Some last initialisations..
+		# -------------------------------------
 		error = False
 		fitness_mean = 0.0
-
+		
 		i_count = 0
-
-		"""
-		if not self.load_state == None:
-		  print 'loading state', self.load_state
-		  [current_time, i_count, self.target_index, p_s , p_c, C, i_eigen, sigma, x_recent, fitness_recent, i_reset, current_sigma, self.learner_pars,\
-			self.targets_learnt, B_D, x_mean] = self.dynamic_params
-		  print 'current_time:', current_time, '\ni_count:', i_count, '\ni_target:', self.target_index, '\np_s:', p_s, '\np_c:', p_c, '\nC:', C,\
-			'\ni_eigen:', i_eigen, '\nsigma:', sigma, '\nx_recent:', x_recent, '\nfitness_recent:', fitness_recent, '\ni_reset:',\
-			i_reset, '\ncurrent_sigma0:', current_sigma, '\nlearner_parameters:', x_learnt, '\nlearnt_targets:', self.targets_learnt, '\nB_D:', B_D,\
-			'\nx_mean:', x_mean
-		  self.i_start = i_count
-		  print 'i_start = i_count =', self.i_start
-		  for i_worker in xrange(1,self.n_workers):
-			  comm.send(self.i_start, dest=i_worker)
-		"""
-
+		
 		return_dict = dict()
 
 		t_0 = datetime.datetime.now()
 		t_reset = t_0
+		# -------------------------------------
 		
-		# Main loop:
-		# 
-		while True:
+		
+		
+		#######################################################
+		# Generation Loop
+		#######################################################
 
-			# Generate and evaluate lambda offspring.
+		while True:
+			
+			print 4*'\n'
+			print 40*"-"
+			print "Generating new generation of speech gestures.."
+			print 40*"-"
+			
+			
+			print "Current target is "+self.target
+			
+			print "Learnt targets are: "+str(self.targets_learnt)
+			
+			
+			
+			# Generate and evaluate lambda offspring. The 'evaluation' function samples around x_mean and synthesizes (while calling 'environment' - both functions below..) sounds.
+			# These sounds are evaluated with the ESN from 'hear'. self.confidences is created, which is then used to compute the fitness (reward).
 			# Resulting confidences will be zero-valued if we don't yet have a target.
-			# ---------------------------------------------------------------------------------------------------------------------------
+			# --------------------------------------------------------------------------------------------------------------------------
 			self.evaluation(x_mean,sigma, B_D)
+			"""
 			# do the following way, for more than one workers.. (if self.n_workers > 1:)
 	  		#self.z_offspring, self.x_offspring, self.confidences, self.energy_cost, self.evaluated_boundary_penalty, N_resampled_trial = self.parallel_evaluation(x_mean, B_D)
-				
+			"""
 			
 			# Each offspring sample counts toward the total count.
 			i_count += self.population_size
+			self.iteration_stages[self.target_index].append(i_count)
 	  		
 	  		
 	  		
-			# If we have a target vowel (e.g. if we're aiming for /a/), compute the fitness (reward) of the learner parameters.
+			# Compute the fitness (reward) of the learner parameters.
 			# ---------------------------------------------------------------------------------------------------------------------------
-			if self.target:
-												# These values we all got from self.evaluation.
-				fitness = -self.confidences.T[self.target_index]+self.energy_factor*self.energy_cost+self.alpha*self.evaluated_boundary_penalty
+										# These values we all got from self.evaluation.
+			fitness = -self.confidences.T[self.target_index] + self.energy_factor*self.energy_cost + self.alpha*self.evaluated_boundary_penalty
+			
+			
+			# Fitness will be a vector (one fitness for each sample in our generation.) A little later (after checking target) we see if the fitness
+			# of one of these samples is above the convergence threshold..	
+			
+			
+			
+			
+			# Check if we've reached a new maximum confidence. If so, output to result path.
+			if self.save_peak and min(fitness) < -self.peak[self.target][0]: # Index null is the reward, 1 the corresp.parameters
+				print "New peak "+self.target
+				self.new_peak(fitness)
 				
+				# If this step is done (or, later - if we're over the convergence threshold), then the learner pars will be the ones with maximum
+				# reward. If this step is not done, then the parameters are updated at the end, with the computed x_mean
 			
 			
 			
-			# If we don't yet have a target vowel, get one! Now we have to start from the beginning again..
+			
+			
+			"""
+			# Now, in this part of the loop, we evaluate various cases.
+			# 	- are we already over the convergence threshold? In this case, we've learnt the current target. > On to the next..
+			#	- are we still below that threshold? (else:) > Update x_mean and other parameters, start loop again..
+			# (each part is separated by some empty lines)
+			"""
+			
+			
+			
+			
+			
+			
+			
+			# If we are above the reward (convergence) threshold in one of the samples..
 			# ---------------------------------------------------------------------------------------------------------------------------
-			if not self.target:
-				idle = True
-				self.get_next_target()
-			
+			if (fitness < -self.convergence_thresholds[self.target]).any() and not self.must_converge:		#  - remember: we defined fitness as negative.
 				
-				
-			
-			# If we are below the convergence threshold.. (Found a local minimum below the last one!)..
-			# ---------------------------------------------------------------------------------------------------------------------------
-			if (fitness < -self.convergence_threshold).any(): #(and self.no_convergence_criterion:)
-				i_argmax = fitness.argmin()
-				x_mean = self.x_offspring[i_argmax]
+				print "Learnt target "+self.target
 				self.targets_learnt.append(self.target)
 				
 				
-				raw_input("Found target "+self.target+"!! Continue?")
+				
+				# These next three steps should theoretically already have been done in self.new_peak, since, being over the convergence threshold means that
+				# we must have a maximum reward (since we haven't crossed the threshold for this target yet before).
+				
+				# Which sample is the one above convergence threshold?
+				i_argmax = fitness.argmin()
+				
+				# Take the parameters used for that sample as x_mean.
+				x_mean = self.x_offspring[i_argmax][:]
 				
 				self.update_learner_pars(x_mean)
 				
-				"""
-				self.results_write.write(self.target+'	'+str(i_count)+'	'+str(-fitness[i_argmax])+'	'+strftime("%d %b %H:%M:%S", localtime())+'\n')
-				self.results_write.write('relative coordinates:\n '+str(self.learner_pars_rel)+'\n')
-				self.results_write.write('absolute coordinates:\n '+str(self.learner_pars)+'\n\n')
-				self.results_write.flush()
-				"""
-
+				
 			
 				return_dict[self.target+'_steps'] = i_count-i_reset
 				return_dict[self.target+'_time'] = datetime.datetime.now()-t_reset
@@ -652,13 +630,12 @@ class functions(params):
 				t_reset = datetime.datetime.now()
 
 				
-				print 'iteration:',i_count,', now:', datetime.datetime.now(), ', i_target:', self.target_index, ', reward:', -fitness[i_argmax], ', parameter:',self.x_offspring[i_argmax]
 				
-				pdb.set_trace()
+				
 				
 				# We've reached a target. Now check if there are still some to learn.
-				if not(self.targets==self.targets_learnt) and self.intrinsic_motivation:
-					self.target = False
+				if not(set(self.targets)==set(self.targets_learnt)) and self.intrinsic_motivation:
+					# ..which means, the algorithm will look for the next one, in the next iteration.
 					p_c = numpy.zeros(self.N_dim)		
 					p_s = numpy.zeros(self.N_dim)		
 					B = numpy.eye(self.N_dim)			 
@@ -673,10 +650,20 @@ class functions(params):
 				else:
 					print 'terminating.'
 					print 'i_reset:', i_reset, ', confidence:', -fitness[i_argmax]
-					tag = int(i_count/(self.n_workers-1))
-					for i_worker in xrange(1,self.n_workers):
-						comm.send((None,None,None,None,None), dest=i_worker, tag=tag)
+					#tag = int(i_count/(self.n_workers))
+					#for i_worker in xrange(1,self.n_workers):
+					#	comm.send((None,None,None,None,None), dest=i_worker, tag=tag)
+					
+					
+					# Save state! (For all targets, save current reward, sigma (0, if not selected as current aim of the learner) and the parameters.)
+					# --------------------------			
+					self.save_snapshot(sigma,fitness)
+					
+					# End while loop!
 					break
+				
+				
+				
 			
 			
 			
@@ -688,17 +675,17 @@ class functions(params):
 			
 			
 			
-			# If we are NOT below the convergence threshold.. (The last minimum was better)
+			# If we are NOT below the convergence threshold..
 			# ---------------------------------------------------------------------------------------------------------------------------	
 			else:
-
+				
 				# Sort by fitness and compute weighted mean into x_mean
 				indices = numpy.arange(self.population_size)
 				to_sort = zip(fitness, indices)
 											# minimization
 				to_sort.sort()
-				fitness, indices = zip(*to_sort)
-				fitness = numpy.array(fitness)
+				sorted_fitness, indices = zip(*to_sort)
+				sorted_fitness = numpy.array(sorted_fitness)
 				indices = numpy.array(indices)
 				x_mean = numpy.zeros(self.N_dim)
 				z_mean = numpy.zeros(self.N_dim)
@@ -708,15 +695,9 @@ class functions(params):
 											# recombination, Eq. 39
 					z_mean += weights[i] * self.z_offspring[indices[i]]
 											# == D^-1 * B^T * (x_mean-x_old)/sigma
-					fitness_mean += weights[i] * fitness[indices[i]]
+					fitness_mean += weights[i] * sorted_fitness[indices[i]]
 				
-				for i in xrange(len(x_mean)):
-					self.learner_pars_rel[self.i_pars_to_learn[i]] = x_mean[i]
-
-				#self.get_('deviations')
-
-				# Output
-				self.update_learner_pars(x_mean)
+				# Update learner pars after saving a snapshot (at the end..)
 				
 				#self.output_write.write(str(datetime.datetime.now()-t_0)+'  '+str(i_count)+'  '+str(-fitness_mean)+'  '+str(self.target_index)+'  ')
 				#for confidence in self.confidences[0]:
@@ -736,6 +717,7 @@ class functions(params):
 
 	
 				# Adapt covariance matrix C
+				# -----------------------------------------------------------------------------
 			   
 				C_new = (1.0-c_1-c_mu)*C + c_1*(numpy.dot(p_c,p_c.T) + (1.0-h_sig)*c_c*(2.0-c_c)*C) + c_mu*numpy.dot(numpy.dot((numpy.dot(B_D, self.z_offspring[indices[:mu]].T)),numpy.diag(weights)),(numpy.dot(B_D, self.z_offspring[indices[:mu]].T)).T)
 
@@ -744,12 +726,15 @@ class functions(params):
 					error = True
 				else:
 					C = C_new			   # regard old matrix plus self.rank one update plus minor correction plus self.rank mu update, Eq. 43
-	
+				
 				# Adapt step-size sigma
+				# -----------------------------------------------------------------------------
 				sigma = sigma * numpy.exp((c_s/damps) * (numpy.linalg.norm(p_s)/chi_N - 1.0))
 											# Eq. 41
-
+				
+				
 				# Update B and D from C
+				# -----------------------------------------------------------------------------
 				if i_count - i_eigen > self.population_size/(c_1+c_mu)/self.N_dim/10.0:
 											# to achieve O(self.N_dim**2)
 					i_eigen = i_count
@@ -782,33 +767,34 @@ class functions(params):
 					B_D = numpy.dot(B,D)
 
 
-				# Escape flat fitness, or better terminate?
-				print 'fitness:', fitness
-				if fitness[0] == fitness[int(numpy.ceil(0.7*self.population_size))]:
+				# Escape flat fitness
+				# -----------------------------------------------------------------------------
+				if sorted_fitness[0] == sorted_fitness[int(numpy.ceil(0.7*self.population_size))]:
 					sigma *= numpy.exp(0.2+c_s/damps)
-					print 'warning: flat fitness, consider reformulating the objective'
-
+					print 'Warning: flat fitness, consider reformulating the objective'
+					print 'Fitness (highest first):', sorted_fitness
 
 				while len(x_recent) > convergence_interval - 1:
-					x_recent.popleft()
-				while len(fitness_recent) > convergence_interval - 1:
-					fitness_recent.popleft()
+					x_recent.pop(0)
+				while len(sorted_fitness_recent) > convergence_interval - 1:
+					sorted_fitness_recent.pop(0)
 				x_recent.append(x_mean)
-				fitness_recent.append(fitness_mean)
-
+				sorted_fitness_recent.append(fitness_mean)
+				
+				
 				cond = numpy.linalg.cond(C)
-
-
-				if self.no_reward_convergence:
-					termination = (numpy.ptp(x_recent, axis=0) < self.ptp_stop).all() or (cond > self.conditioning_maximum)
-				else:
-					termination = ((numpy.ptp(x_recent, axis=0) < self.ptp_stop).all()) and (numpy.ptp(fitness_recent) < self.ptp_stop) or (cond > self.conditioning_maximum)
-
+				recent_params_range = numpy.ptp(x_recent, axis=0)
+				converged_params = (recent_params_range < self.range_for_convergence).all()
+				converged_fitness = (numpy.ptp(sorted_fitness_recent) < self.range_for_convergence)
+				C_matrix_criterium = (cond > self.conditioning_maximum)
+				
+				termination = converged_fitness or converged_params or C_matrix_criterium
+				
 				if termination:
 					print 'convergence criterion reached.'
-					if (fitness[0] > -self.convergence_threshold): # confidence worse than desired
+					if (sorted_fitness[0] > -self.convergence_thresholds[self.target]): # confidence worse than desired
 						print 'reward too low. resetting sampling distribution.'
-						print 'reward', -fitness[0], '<', self.convergence_threshold
+						print 'reward', -sorted_fitness[0], '<', self.convergence_thresholds[self.target]
 						p_c = numpy.zeros(self.N_dim)		
 						p_s = numpy.zeros(self.N_dim)		
 						B = numpy.eye(self.N_dim)			 
@@ -816,86 +802,151 @@ class functions(params):
 						B_D = numpy.dot(B, D)		   
 						C = numpy.dot(B_D, (B_D).T)
 						i_eigen = 0
-
 						if self.random_restart:
 							if current_sigma < 0.9 and not self.keep_sigma_constant:
 								current_sigma += 0.05			  
 							sigma = current_sigma
-							print 'sigma set to', sigma
-					
-							random_learnt_target = random.choice(self.targets_learnt)
-							x_mean = self.learner_pars[random_learnt_target]
-							print 'agent chose to restart search from learnt parameters of '+random_learnt_target
+							
+							# Preferably chose a already chosen target
+							if self.targets_learnt:
+								random_target = random.choice(self.targets_learnt)
+								
+							else:
+								random_target = random.choice(self.targets)
+							x_mean = self.learner_pars_rel[random_target][self.i_pars_to_learn]
+								
+							
+							print x_mean
+							print 'agent chose to restart search from learnt parameters of '+random_target
 
 						else:
+							self.update_learner_pars(self.neutral_pars_rel[self.i_pars_to_learn])
+							
 							if current_sigma < 0.9 and not self.keep_sigma_constant:
-								current_sigma += 0.1			  
-							sigma = current_sigma
-							print 'sigma set to', sigma
-
+								current_sigma += 0.1
+								sigma = current_sigma
+								
+						
+						
 
 					else:
-						print 'confidence:', -fitness[0], ', i_reset:', i_reset
+						print 'reward:', -sorted_fitness[0], ', i_reset:', i_reset
 						self.targets_learnt.append(self.target)
 	
 						if (len(self.targets_learnt) < self.n_targets+1) and self.intrinsic_motivation:
-							self.target = False
 							p_c = numpy.zeros(self.N_dim)		
 							p_s = numpy.zeros(self.N_dim)		
 							B = numpy.eye(self.N_dim)			 
 							D = numpy.eye(self.N_dim)		   
 							C = numpy.dot(B_D, (B_D).T)	
 							i_eigen = 0
-							current_sigma = self.sigma_0			   
+							current_sigma = self.sigma_0
+							print "sigma0: "+str(self.sigma_0)		   
 							sigma = current_sigma
 							i_reset = 0
 						else:
 							print 'terminating.'
-							print 'i_reset:', i_reset, ', confidence:', -fitness[0]
+							print 'i_reset:', i_reset, ', confidence:', -sorted_fitness[0]
 							tag = int(i_count/(self.n_workers-1))
-							for i_worker in xrange(1,self.n_workers):
-								comm.send((None,None,None,None,None), dest=i_worker, tag=tag)
+							
+							# Save state! (For all targets, save current reward, sigma (0, if not selected as current aim of the learner) and the parameters.)
+							# --------------------------			
+							self.save_snapshot(sigma,fitness)
+							
 							break
 			
 			
-			# Do the following for all generations!
+			
+			
+			
+			
+			
+			print 'Iteration:',i_count,', time elapsed:', datetime.datetime.now()-t_0, ', target:', self.target, ', reward:%.2f'%(-fitness_mean)
+			
+			
+			
+			# Do the following for all generations! (Whether below or above convergence criterium) / of course, only if not broken already (not all targets found)
 			# ---------------------------------------------------------------------------------------------------------------------------
 			if error:
 				print 'Critical error occurred!\nTerminating simulations.'
-				tag = int(i_count/(self.n_workers-1))
-				for i_worker in xrange(1,self.n_workers):
-					comm.send((None,None,None,None,None), dest=i_worker, tag=tag)
+				#tag = int(i_count/(self.n_workers))
+				#
+				#for i_worker in xrange(1,self.n_workers):
+				#	comm.send((None,None,None,None,None), dest=i_worker, tag=tag)
 				break
-			if self.verbose:
-				print 'x:', self.x_offspring
-			print 'iteration:',i_count,', time elapsed:', datetime.datetime.now()-t_0, ', target:', self.target, ', reward:', -fitness_mean, ', parameter:',x_mean
 			
-			"""
-			self.save_state(self.dynamic_params, 'dyn')
-			"""
 			
-		# At the end..
+			# Update for next batch
+			self.update_learner_pars(x_mean)
+			
+			
+			if sigma > 0.9:
+				sigma = 0.9
+				
+			# Save state! (For all targets, save current reward, sigma (0, if not selected as current aim of the learner) and the parameters.)
+			# --------------------------			
+			self.save_snapshot(sigma,fitness)
+						
+			# Get next target vowel.. Intrinsic motivation means: The learner picks the target which yielded the maximum confidence in the last round.
+			# ---------------------------------------------------------------------------------------------------------------------------
+			if self.intrinsic_motivation or self.target in self.targets_learnt:
+				
+				self.get_next_target()
+				# Update the learner pars of the new target now!
+				self.update_learner_pars(x_mean)
+			
+			if self.target in self.targets_learnt:
+				debug()
+			
+			
+			#  <----  <----  <----  RESTART LOOP, until learnt.   <----  <----  <----  <----  <----  <----  <----
+			
+		#	
+		#	
+		#	
+		#	
+		#	
+		#
+		#
+		
+		
+		
+		
+		
+		
+		
+		
+		debug()
+		
+		# At the end...
 		# ---------------------------------------------------------------------------------------------------------------------------
 		return_dict['time'] = datetime.datetime.now()-t_0
 		return_dict['steps'] = i_count
-
-		x_min = x_mean
-		if self.verbose:
-			print 'x:', self.x_offspring
-			print 'x_mean:', x_mean
 		
 		
-		#		input_dict = {	'gesture':vowel,
-		#						'group_speaker':group_speaker,
-		#						'pitch_var':self.speaker_pitch_rel[speaker],
-		#						'verbose':True }
-		#		paths = {		'input_folder':self.speaker_path,
-		#						'wav_folder':self.output_path+'/'+vowel }
-		#		
-		#		synthesize.main(input_dict,paths)
-		#		
-		#		create_speaker_finish(speaker, outputfolder) #??? How to do this?
+		# Synthesize learnt speech sounds.
+		# -----------------------------------------------------------------------------------------------
+		for learnt_target in self.targets_learnt:
+			
+			if not type(self.learner_pars[learnt_target]) == list:
+				self.learner_pars[learnt_target] = self.learner_pars[learnt_target].tolist()
+				
+			input_dict = {	'params':self.learner_pars[learnt_target], #The final parameters
+							'gesture':'learnt_'+learnt_target, #The params will be written into that gesture (e.g. <shape... 'learnt_a'..>) in the speaker file
+							'group_speaker':self.amb_speech.sp_group_name+' '+str(self.learner), 
+							'pitch_var':self.learner_pitch_rel,
+							'verbose':False }
+			
+			paths = {		'wav_folder':self.result_folder, 'wav_path':self.result_folder+'/learnt_%s.wav'%learnt_target}
 		
+			synthesize.main(input_dict,paths)
+			wav_path = synthesize.wav_path
+		
+			# Plot the mean sample votes for the learnt vowels.
+			confidence[learnt_target],mean_sample_vote[learnt_target] = self.get_confidence(self,wav_path,plot=True)
+		
+		
+		# Main function returns final data.
 		return return_dict
 	
 	
@@ -918,6 +969,7 @@ class functions(params):
 
 
 
+																						# HELP FUNCTIONS FOR THE MASTER FUNCTION
 
 
 
@@ -948,7 +1000,7 @@ class functions(params):
 
 		
 		
-		self.confidences = numpy.zeros([self.population_size,self.n_targets+1])
+		self.confidences = numpy.zeros([self.population_size,len(self.vowels)])
 		self.energy_cost = numpy.zeros(self.population_size)
 		self.evaluated_boundary_penalty = numpy.zeros(self.population_size)
 		self.z_offspring = numpy.zeros([self.population_size, self.N_dim])
@@ -958,8 +1010,8 @@ class functions(params):
 		for i in xrange(self.population_size):   # offspring generation loop
 
 			invalid = True
-			print 'sampling parameters...'
-			if self.resample:
+			if self.resample['normal'] and not (self.resample['penalty'] and self.resample['specific']):
+				
 				while invalid:
 					N_resampled += 1
 					z_i = numpy.random.randn(self.N_dim)	  # standard normally distributed vector
@@ -967,7 +1019,7 @@ class functions(params):
 					invalid = (x_i < 0.0).any() or (x_i > 1.0).any()
 
 				boundary_penalty_i = 0.0
-			else:
+			elif self.resample['penalty'] and not (self.resample['normal'] and self.resample['specific']):
 				N_resampled = 0
 				z_i = numpy.random.randn(self.N_dim)		  # standard normally distributed vector
 				x_i = x_mean + sigma*(numpy.dot(B_D, z_i)) # add mutation, Eq. 37
@@ -983,17 +1035,46 @@ class functions(params):
 							x_repaired[i_component] = 0.0
 					boundary_penalty_i = numpy.linalg.norm(x_i-x_repaired)**2
 												# penalize boundary violation, Eq. 51
-					x_i = x_repaired
+					x_i = x_repaired[:]
+					
+			elif self.resample['specific'] and not (self.resample['penalty'] and self.resample['normal']):
+				
 
-			self.z_offspring[i] = z_i
-			self.x_offspring[i] = x_i
+				# This is similar to 'get noisy parameters' in ambient_speech_functions.py
+				invalid = numpy.ones(len(x_mean), dtype=bool)
+				x_i = numpy.array(x_mean[:])
+				boundary_penalty_i = 0.0
+				while invalid.any():
+					numpy.random.seed()
+					z_i = numpy.random.randn(self.N_dim)	  # standard normally distributed vector
+					perturbation = sigma*(numpy.dot(B_D, z_i))  # add mutation, Eq. 37
+					perturbation[numpy.logical_not(invalid)] = 0 # only those that are invalid will be (re-) 'noised'
+					x_i = x_i + perturbation
+					
+					# Which ones are invalid? (invalid is a matrix!)
+					# The samples have to be in relative coordinates between 0 and 1!
+					invalid = numpy.logical_or((x_i < 0.0) , (x_i > 1.0))
+					if invalid.any():
+						boundary_penalty_i += numpy.linalg.norm(abs(x_i[invalid]-0.5)-0.5)**2 #This is essentially the distance from the boundaries 0 or 1.
+						x_i[invalid] = numpy.array(x_mean)[invalid] #take away the noise where invalid
+				
+				
+			else:
+				raise RuntimeError('Specify only one resample method (set only one to True) (Set this parameter in get_params.py)')
+			
+			
+				
+			
+			self.z_offspring[i] = z_i[:]
+			self.x_offspring[i] = x_i[:]
 			self.evaluated_boundary_penalty[i] = boundary_penalty_i
 	 		
 	 		
 	 		# Things to do if you already have a target vowel.
 	 		if self.target:
 	 			# Now use the sampled parameters to update our learner parameters (of the current target)
-				self.update_learner_pars(x_i)
+				self.update_learner_pars(x_i) #change
+				
 				# .. and see how well the parameters actually fit a class (using the ESN network (flow) from the previous step in the project 'hear')
 				# the quality of the sample is given in a confidence vector for each generation (basically a sample vote from the ESN network)
 				self.confidences[i] = self.environment()
@@ -1002,21 +1083,15 @@ class functions(params):
 				# on the fitness of the learner.
 				self.energy_cost = norm(self.learner_pars_rel[self.target] - self.neutral_pars_rel)
 			
-			
-	
-			
-			
+				
 
-
-
-
-
-
-
-
-
-
-
+			#           ^
+			#           ^
+			#           ^
+			#           ^
+			#           ^			
+			#           ^
+			# Called in | upper function
 
 	def environment(self):
 		"""
@@ -1026,29 +1101,66 @@ class functions(params):
 			- we can then plot the actual reservoir states, which gives the user a handy way of checking on the progress of the learner
 				(quality of classification is seen there) -> How 'close' we are to a sound we want to learn.
 		"""
+		#self.plot_learner_params()
+		"""
+		# Clear folder of wav etc files of last sample..
+		system('rm -r '+self.output_folder+'/*')
+		"""
+		
+		# Synthesize main (from api_class) won't accept numpy as parameters..
+		if type(self.learner_pars[self.target]) == numpy.ndarray:
+			self.learner_pars[self.target]=self.learner_pars[self.target].tolist()
+			
 		
 		# Synthesize sound using VTL_API
 		# -----------------------------------------------------------------------------------------------------------------------------------------
 		
-		input_dict = {	'gesture':self.target,
-						'params':self.learner_pars[self.target],
-						'learning_speaker':self.amb_speech.sp_group_name+' '+str(self.learner),
+		# Reset synthesize instance
+		
+		input_dict = {	'params':self.learner_pars[self.target],
+						'group_speaker':self.amb_speech.sp_group_name+' '+str(self.learner),
 						'pitch_var':self.learner_pitch_rel,
 						'verbose':False }
-		paths = {		'input_path':self.learner_path,
-						'wav_folder':self.output_folder }
+		paths = {		'wav_folder':self.output_folder}
 		
-		valid = synthesize.main(input_dict,paths)
+		synthesize.main(input_dict,paths)
 		wav_path = synthesize.wav_path
 		
-		"""
-		# This part is commented, because there's no need for it. The idea was to return zero confidences for a silent sample. 
-		# But since we included some silent samples in the null classes in ambient speech, those will be classified as null and
-		# a low confidence will be returned anyway. This makes everything a bit more realistic, since we're not simply skipping 
-		# the ESN part...
+		
 		# If the gesture was 'airtight', return 0 confidence for all targets.
-		if not valid:
-			return numpy.zeros([self.n_targets+1])
+		# This distinction simply skips the last part (which would also do the job for silent gestures). > Speedup!
+		if not synthesize.sound_is_valid:
+		
+			# Return a penalty as confidence.
+			penalty = numpy.zeros([len(self.vowels)])
+			
+			penalty[-1] = 1
+			
+			return penalty
+		
+		
+		else:
+			# Call the function, right below..
+			confidence,mean_sample_vote = self.get_confidence(wav_path,plot=False)
+			
+			
+			return confidence
+			
+			
+
+			#           ^
+			#           ^
+			#           ^
+			#           ^
+			#           ^			
+			#           ^
+			# Called in | upper function
+			
+			
+			
+	def get_confidence(self,wav_path,plot=False):
+		"""
+		Processes sound (using functions from ambient speech) and used the ESN to produce a sample vote (plot to see what it is..), and the confidences.
 		"""
 		
 		# Process sound
@@ -1057,22 +1169,17 @@ class functions(params):
 			# First, we need to know how the function must be called (sampling dictionary. see more infos in ambient_speech_functions)
 		sampling = {'n_channels':self.amb_speech.sampling['n_channels'] , 'compressed':True} #Standard values: n_channels: 50, compressed: True
 		cochlear_activation = self.amb_speech.process_sound_for_hearing(wav_path,sampling,dump=False)
-		
+
 		
 		# Evaluate how 'good' the speech sound was (classification)
-		# -----------------------------------------------------------------------------------------------------------------------------------------
+		# -----------------------------------------------------------------------------------------------------------------------------------------                  	
 
-		# Get flow (classifier)
-		flow_file = open(self.ESN_path, 'r')    
-		flow = cPickle.load(flow_file)      	
-		flow_file.close()                   	
+		sample_vote = self.flow(cochlear_activation)                       # evaluate trained self.verbose units' responses for current item
 
-		sample_vote = flow(cochlear_activation)                       # evaluate trained self.verbose units' responses for current item
-		
-		# Normalize activity?
-		normalize = False
+		normalize = True
 		def normalize_activity(x):
-			"""Define a neat function which is called right below.. =)"""
+			#Define a neat function which is called right below.. =)
+	
 			x_normalized = x.copy()
 			minimum = x.min()
 			maximum = x.max()
@@ -1082,8 +1189,25 @@ class functions(params):
 			x_normalized /= range_/2.0
 			return x_normalized
 		
-		if normalize:
-			sample_vote = normalize_activity(sample_vote)
+		def shift_and_normalize_activity(x):
+			
+			x_shifted = x - x.min()
+			#x_shifted /= x.max()
+			return x_shifted
+		
+		#sample_vote = normalize_activity(sample_vote)
+		sample_vote = shift_and_normalize_activity(sample_vote)
+		
+		# Change sequence of nodes.
+		# Maybe remove this, and make a separate function to save runtime?
+		standard_seq = self.targets[:]
+		standard_seq.append('null')
+		new = numpy.array(sample_vote)*0
+		for col in range(numpy.size(sample_vote,1)): #Go throught the columns
+			new_col = standard_seq.index(self.ESN_sequence[col])		# ESN seq. for instance:  ['null','i','u','a']
+			new[:,new_col] = sample_vote[:,col]
+		sample_vote = new
+		
 		
 		# Average each neurons' response over time
 		mean_sample_vote = numpy.mean(sample_vote, axis=0)
@@ -1091,21 +1215,29 @@ class functions(params):
 		
 		# Get confidences
 		# -----------------------------------------------------------------------------------------------------------------------------------------
-		
 		def get_confidence(vote):
-			"""Define a neat function which is called right below.. =)"""
+			#Define a neat function which is called right below.. =)
+	
 			confidence = numpy.zeros(len(vote)) #length of the vote is n_classes
 			confidence = numpy.exp(vote)
 			confidence /= numpy.sum(confidence)
 			return confidence
-		
+
 		confidence = get_confidence(mean_sample_vote)
 		
-		# Plot reservoir states
+		# Plot reservoir states (this is done after the learning and skipped during learning)
 		# -----------------------------------------------------------------------------------------------------------------------------------------
-		#self.plot_reservoir_states(flow, sample_vote)
+		if plot:
+			if not type(plot) == str:
+				raise RuntimeError('plot must be either False or string (e.g. learnt vowel name)')
+			else:
+				self.plot_reservoir_states(sample_vote,plotname=plot)
 		
-		return confidence
+		
+		#print "Confidence = %s"%str(confidence[:])
+
+			
+		return confidence,mean_sample_vote
 
 		
 		
@@ -1113,46 +1245,25 @@ class functions(params):
 		
 		
 		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
 		"""	
+		
+		The generations could be assessed in a parallel way.
+		(Steps: evaluation, environment, get_confidence)
+		
+		These steps could be written in a separate skript which would take parameters like x_mean as arguments, and return confidences.
+		
+		The rest (cma-es learning loop) would not be run in parallel. 
+		
+		On MPI run as follows:
+		-------------------------------------------------------------------
+		$ salloc -p sleuths -n (lambda/int) mpirun python parallel_eval_envir_confidence.py [arguments]
+		-------------------------------------------------------------------
+		
+		
+		
+		
+		
+		
 	def parallel_evaluation(self,x_mean, B_D, i_count):
 
 
@@ -1187,27 +1298,7 @@ class functions(params):
 		return z, x, self.confidences, self.energy_cost, boundary_penalty, N_resampled_sum
 		"""
 		
-		
-		
-																			#
-																	#
-																	#
-																	#
-																	#
-																	#
-																	#
-																	#
-																	#
-																	#
-																	#
-																	#
-																	#
-																	#
-																	#
-																	#	
-	#############################################################################################################################################
-	# SLAVE FUNCTION ############################################################################################################################
-	#############################################################################################################################################
+	
 		"""
 	def generation_sampling(self):
 		"""
@@ -1270,7 +1361,256 @@ class functions(params):
 			i += 1
 		"""
 	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	#############################################################################################################################################
 	#############################################################################################################################################
+	# General functions, used to save states of learning, plot, etc....
+	#############################################################################################################################################
+	#############################################################################################################################################
+	
+	
+	def get_next_target(self):
+		"""
+		# Get next target
+		# --------------------------------------------------------------------------------------------------------
+		The aim of this function is to get our next target. We don't want any already learnt targets anymore. Target
+		with maximum confidence is to be chosen.
+		We can't use the reward here, since we're thinking about the whole generation and all target confidences.
+		"""
+		# Example format for confidences:
+		# confidences = numpy.array([0.2(a),0.1(e),0.3(i),0.4(null)], [next generation],...] (generation)
+		# 1. Get maximal confidences across the samples in the generation, for each target.
+		generation_maxima = numpy.amax(self.confidences,axis=0)
+		
+		unlearnt_target_indices = [i for i in range(len(self.targets)) if self.targets[i] not in self.targets_learnt]
+		
+		max_confidence_unlearnt = numpy.amax(generation_maxima[unlearnt_target_indices])
+		
+		# Get the right index out of generation_maxima
+		self.target_index = numpy.where(generation_maxima==max_confidence_unlearnt)[0][0]
+		
+		self.target = self.targets[self.target_index]
+		
+		if self.target in self.targets_learnt:
+			print "already in learnt"
+			print unlearnt_target_indices
+			print max_confidence_unlearnt
+			print self.target_index
+			debug()
+			
+		
+	
+	
+	
+	
+	def update_learner_pars(self,x):
+		"""
+		Updates the shape parameters of the learner.
+		(both rel and abs)
+		"""
+		
+		if not self.target:
+			raise RuntimeError("Cannot update learner parameters! We don't know what the current target is!")
+		
+		params = self.target_pars_rel[self.target].copy()
+		
+		if self.flat_tongue:
+			params[-4:-1] = 0.5
+		
+		params[self.i_pars_to_learn] = x[:]
+		
+		
+		self.learner_pars_rel[self.target] = numpy.array(params[:])
+		
+		# Call function from ambient speech in order to transform parameters from relative to absolute parameter space
+		self.learner_pars[self.target] = self.amb_speech.transf_param_coordinates('relative_to_absolute',self.learner_pars_rel[self.target],self.pars_top,self.pars_low)
+		self.learner_pars[self.target] = numpy.array(self.learner_pars[self.target])
+		
+		
+		
+	
+	
+	def save_snapshot(self,sigma,fitness):
+	
+		"""
+		Save a snapshot of current target learning progress 
+		- graphic, and pickle dump!
+		(In the result folder..)
+		"""
+		self.target_index = self.targets.index(self.target)
+		
+		
+		# Put rewards of sub -0.1 values to -0.1. (fitness is -reward)
+		fitness = numpy.array(fitness)
+		fitness[fitness>0.1] = 0.1
+		
+		# Save state...
+		# ---------------------------------------------------------------------
+		self.reward_history[self.target].append(-numpy.amin(fitness))
+		self.sigma_history[self.target].append(sigma)
+		self.learner_pars_rel_history[self.target].append(self.learner_pars_rel[self.target])
+		self.learner_pars_history[self.target].append(self.learner_pars[self.target])
+		
+		# Save graphic
+		# ----------------------------------------------------------------------
+		snapshot = plt.figure()
+		try:
+			reward_graph = snapshot.add_subplot(221)
+			threshold = [self.convergence_thresholds[self.target]] * len(self.iteration_stages[self.target_index]) # A bar in the graph, indicating the reward threshold.
+			reward_graph.plot(self.iteration_stages[self.target_index],self.reward_history[self.target],'o')
+			reward_graph.plot(self.iteration_stages[self.target_index],threshold,'r-')
+			reward_graph.set_title('Reward / iterations')
+		
+			sigma_graph = snapshot.add_subplot(222)
+			sigma_graph.plot(self.iteration_stages[self.target_index],self.sigma_history[self.target],'o')
+			sigma_graph.set_title('Sigma / iterations')
+			
+			par_change = snapshot.add_subplot(223)
+			
+			# Parameter indices that are dynamic / static. Plot red/black
+			i_dynamic = self.i_pars_to_learn[:]
+			i_static = [i for i in range(len(self.target_pars_rel[self.target])) if i not in i_dynamic]
+			
+			
+			# starting parameters
+			for i in i_dynamic:
+				par_change.plot(numpy.array(self.learner_pars_rel_history[self.target]).T[i],alpha=0.9)
+				par_change.set_title('Dyn. par. devel. / iterations')
+			#par_change.xlabel('Target parameters')
+			#par_change.ylabel('Initial parameters')
+			
+			# parameters now..
+			end_par_scat = snapshot.add_subplot(224)
+			end_par_scat.scatter(self.target_pars_rel[self.target][i_dynamic],self.learner_pars_rel_history[self.target][-1][i_dynamic],color='red')
+			end_par_scat.scatter(self.target_pars_rel[self.target][i_static],self.learner_pars_rel_history[self.target][-1][i_static],color='black')
+			end_par_scat.set_title('Current parameters')
+			#par_change.xlabel('Target parameters')
+			#par_change.ylabel('Current leart parameters')
+		
+			snapshot.savefig(self.result_folder+'/snapshot/snapshot_for_target_%s.png'%self.target)
+		except ValueError:
+			debug()
+			
+		plt.close()
+		
+		
+		# Save state (pickle)
+		# ----------------------------------------------------------------------
+		self.output_dict = {	'learner parameters relative':self.learner_pars_rel_history,
+								'rewards':self.reward_history,
+								'sigma':self.sigma_history,
+								'current_peak':self.peak							}
+						
+		f = open(self.result_folder+'/history.pickle', 'w+')
+		f.truncate()
+		pickle.dump(self.output_dict,f)
+		f.close()
+		
+		
+		
+		
+		
+		
+		
+	def new_peak(self,fitness):
+		"""
+		Check if one of the current samples is the best sample ever of that target.
+		If yes, output to data path.
+		"""
+		
+		# Which sample is the highest? (remember, fitness is defined negatively)
+		i_argmax = fitness.argmin()
+		
+		# Take the parameters used for that sample as x_mean.
+		x_mean = self.x_offspring[i_argmax][:]
+	
+		self.update_learner_pars(x_mean)
+		
+		if type(self.learner_pars[self.target]) == list:
+			self.peak[self.target] = (-fitness[i_argmax],self.learner_pars[self.target])  # Initialisation was a tuple: (0,numpy.zeros([len(self.target_pars[vowel])]))
+		else:
+			self.peak[self.target] = (-fitness[i_argmax],self.learner_pars[self.target].tolist())
+		
+		# Save in data folder
+		input_dict = {	'params':self.peak[self.target][1], #The current peak parameters
+							'group_speaker':self.amb_speech.sp_group_name+' '+str(self.learner), 
+							'pitch_var':self.learner_pitch_rel,
+							'verbose':False }
+		
+		paths = {		'wav_folder':self.output_folder+'/current_peak', 'wav_path':'%s/current_peak/peak_%s.wav'%(self.output_folder,self.target)}
+		
+		synthesize.main(input_dict,paths)
+		
+		
+	
+		
+	
+	
+	def plot_reservoir_states(self, sample_vote,plotstring='unknown'):
+		"""
+		Plot the states of the reservoir (and the classification strengths). This function is very similar to 'plot_prototypes' in hear_functions.
+		
+		New: Changed completely, made simpler.
+		"""
+		
+		debug()
+		
+		f = plt.figure()
+		plt.title("Class activations using (adult|infant) ESN")
+		f_s  = plt.subplot(111)
+		f_s.matshow(sample_vote.T)
+		plt.ylabel("Class")
+		plt.xlabel('')
+		ylabels = self.vowels[:]
+		ylabels.append('null')
+		plt.yticks(range(self.n_vowels), ylabels)
+		plt.xticks(range(0, 35, 5), numpy.arange(0.0, 0.7, 0.1))
+		f.savefig(self.result_folder+'/Class_activations_learnt_'+plotstring)
 		
 		
