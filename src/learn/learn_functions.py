@@ -896,7 +896,12 @@ class functions(params):
 				self.update_learner_pars(x_mean)
 			
 			if self.target in self.targets_learnt:
+				print "Remaining Bug: Sometimes a target will be continue to be learnt, even if learnt already. A simple and rough fix would be the following lines:"
 				debug()
+				while self.target in self.targets_learnt:
+					self.target = random.choice(self.targets)
+				self.target_index = self.targets.index(self.target)
+				
 			
 			
 			#  <----  <----  <----  RESTART LOOP, until learnt.   <----  <----  <----  <----  <----  <----  <----
@@ -916,7 +921,6 @@ class functions(params):
 		
 		
 		
-		debug()
 		
 		# At the end...
 		# ---------------------------------------------------------------------------------------------------------------------------

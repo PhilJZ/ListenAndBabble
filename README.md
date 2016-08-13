@@ -74,7 +74,7 @@ If the user wishes to create and manipulate speakers of his/her own, she/he must
 
 
 
-#WHAT 'ListenAndBabble' DOES:
+WHAT 'LISTENANDBABBLE' DOES:
 ------------------------------------------------------
 
 The project currently contains 3 steps: 'ambient_speech', 'hear' and 'learn'
@@ -96,7 +96,7 @@ See ... [Master thesis] for more information and suggestions for improvement / e
 
 
 
-#A typical experiment guide..
+A TYPICAL EXPERIMENT..
 ------------------------------------------------------
 
 1. 	Create a series of speakers of various ages, using VocalTractLab. (Run .exe on Windows, or over wine on Linux.) 
@@ -124,8 +124,8 @@ See ... [Master thesis] for more information and suggestions for improvement / e
 	
 
 
-#Source code documentation..
-#------------------------------------------------------
+SOURCE CODE DOCUMENTATION
+------------------------------------------------------
 
 		Architecture
 First, we must understand how the code is structured. To make this easier to comprehend, I applied the same structure to the task of computing the square root of some arbitrary number. A pdf presenting the code and explaining the structure is found in the subfolder control. This project is basically structured in the same way (though more complicated). Each step (ambient speech, hear, learn) of the project is executed from the shell (.py) and controlled from _control/get params.py_ by the user.
