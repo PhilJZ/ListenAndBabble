@@ -3,8 +3,6 @@
 #ListenAndBabble (forked repo): Introduction
 ------------------------------------------------------
 
-Attention: This repository is still work in progress.
-
 See README of forked repo for the model published in 'Murakami et al. (2015)': "Seeing [u] aids vocal learning: babbling and imitation of vowels using a 3D vocal tract model, reinforcement learning, and reservoir computing." International Conference on Development and Learning and on Epigenetic Robotics 2015 (in press).'
 
 Code taken from the original project has been adapted and restructured in order to make it more widely applicable (to include whole series of speakers, etc.). 
