@@ -28,10 +28,12 @@ if my_path not in sys.path:
 Shell is steered using a parameter file (control/get_params.py). In this file, all control parameters for
 each stage (ambient speech, hear and learn) are found and changed. This enables minimal interaction with the
 code itself.
-In this script, we only need to know, this basic steps we should execute. 	Should we produce ambient speech, or hear, or both?
-																			.. or do we have a trained auditory system, and just want
-																			to learn? > Set the corresponding parameters "True" or "False"
-																			in the parameter script itself.
+In this script, we only need to know which project steps to execute. 	
+	Should we produce ambient speech, or hear, or both?
+		.. or do we have a trained auditory system, and just want
+		to learn? 
+		> Set the corresponding parameters "True" or "False"
+		in the parameter script itself.
 																		
 Importing all the parameters would look like this:
 		
@@ -51,9 +53,12 @@ from control.get_params import parameters as params
 params_inst = params()
 
 print "Shell calls 3 main scripts:"
-print "Execute main script 'ambient_speech'? 	: "+str(params_inst.execute_main_script['ambient_speech'])
-print "Execute main script 'hear'? 	: "+str(params_inst.execute_main_script['hear'])
-print "Execute main script 'learn'? : "+str(params_inst.execute_main_script['learn'])
+print "Execute main script 'ambient_speech'? 	: "
+print str(params_inst.execute_main_script['ambient_speech'])
+print "Execute main script 'hear'? 	: " 
+print str(params_inst.execute_main_script['hear'])
+print "Execute main script 'learn'? : "
+print str(params_inst.execute_main_script['learn'])
 
 
 # Setting up Parallel computing, using MPI for python.

@@ -14,7 +14,7 @@ Also, a whole new step was added to the project: "ambient speech" which
 -creates ambient speech sounds (which can be used to train the echo-state network of the reinforcement learner) and 
 -analyses various characteristics
 	of the speakers, 
-	of shape parameters (like 'toungue position when saying /a/') and 
+	of shape parameters (like 'tongue position when saying /a/') and 
 	of the speech sounds themselves (e.g. plotting vowels in formant space).
 
 Much of the code from the original repo has been compartmentalized, making it easier for a user to find his/her way around the code.
@@ -152,6 +152,10 @@ I tried my best to document the code itself extensively where needed. Knowing th
 		Speaker groups documentation
 The subfolder data/[backups VTL speaker groups contains a speaker group documentation (.txt file). In it some information on the speaker group (age of speakers, pitch, ..) - and how to use the speaker files in the code.
 
+
+
+		Produce pdf output like this:
+enscript -E -q -Z -p - -f Courier10 _name of script_.py | ps2pdf - _name of pdf_.pdf
 
 
 
