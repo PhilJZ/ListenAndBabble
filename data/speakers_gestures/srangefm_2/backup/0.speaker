@@ -39,8 +39,8 @@
         <narrow points="1.378 0 0.8036 -0.125 1.08 -0.75 1.768 -2 1.133 -2 0.63 -0.75 0 -0.625 0 0 "/>
         <wide points="2.526 0 1.63 -0.125 1.348 -0.75 1.768 -2 1.133 -2 0.8978 -0.75 0 -0.625 0 0 "/>
       </larynx>
-      <subglottal_cavity length="14.4000"/>
-      <nasal_cavity length="7.1000"/>
+      <subglottal_cavity length="23.0000"/>
+      <nasal_cavity length="11.4000"/>
       <param index="0"  name="HX"  min="0.000"  max="1.000"  neutral="1.000" />
       <param index="1"  name="HY"  min="-3.228"  max="-1.850"  neutral="-2.643" />
       <param index="2"  name="JX"  min="-0.372"  max="0.000"  neutral="0.000" />
@@ -67,113 +67,61 @@
       <param index="23"  name="MA3"  min="0.000"  max="0.300"  neutral="0.000" />
     </anatomy>
     <shapes>
-      <shape name="learnt_u">
-        <param name="HX" value="0.9833" domi="0.0"/>
-        <param name="HY" value="-2.4203" domi="0.0"/>
-        <param name="JX" value="-0.2000" domi="0.0"/>
-        <param name="JA" value="-4.0217" domi="0.0"/>
-        <param name="LP" value="1.0000" domi="0.0"/>
-        <param name="LD" value="0.3882" domi="0.0"/>
-        <param name="VS" value="0.0304" domi="0.0"/>
-        <param name="VO" value="-0.1000" domi="0.0"/>
-        <param name="WC" value="0.0000" domi="0.0"/>
-        <param name="TCX" value="0.3436" domi="0.0"/>
-        <param name="TCY" value="-0.5707" domi="0.0"/>
-        <param name="TTX" value="1.9054" domi="0.0"/>
-        <param name="TTY" value="-0.8868" domi="0.0"/>
-        <param name="TBX" value="1.5618" domi="0.0"/>
-        <param name="TBY" value="-0.0873" domi="0.0"/>
-        <param name="TRX" value="-1.8530" domi="0.0"/>
-        <param name="TRY" value="-1.7267" domi="0.0"/>
-        <param name="TS1" value="0.5620" domi="0.0"/>
-        <param name="TS2" value="0.1637" domi="0.0"/>
-        <param name="TS3" value="0.0602" domi="0.0"/>
-        <param name="TS4" value="-0.0386" domi="0.0"/>
-        <param name="MA1" value="0.0000" domi="0.0"/>
-        <param name="MA2" value="0.0000" domi="0.0"/>
-        <param name="MA3" value="0.0000" domi="0.0"/>
-      </shape>
-      <shape name="learnt_a">
-        <param name="HX" value="0.7381" domi="0.0"/>
-        <param name="HY" value="-2.6258" domi="0.0"/>
-        <param name="JX" value="-0.2000" domi="0.0"/>
-        <param name="JA" value="-4.3032" domi="0.0"/>
-        <param name="LP" value="0.0994" domi="0.0"/>
-        <param name="LD" value="0.8196" domi="0.0"/>
-        <param name="VS" value="0.3275" domi="0.0"/>
-        <param name="VO" value="-0.1000" domi="0.0"/>
-        <param name="WC" value="0.0000" domi="0.0"/>
-        <param name="TCX" value="0.1970" domi="0.0"/>
-        <param name="TCY" value="-1.2129" domi="0.0"/>
-        <param name="TTX" value="2.3545" domi="0.0"/>
-        <param name="TTY" value="-1.2919" domi="0.0"/>
-        <param name="TBX" value="-0.0152" domi="0.0"/>
-        <param name="TBY" value="-0.9623" domi="0.0"/>
-        <param name="TRX" value="-1.8530" domi="0.0"/>
-        <param name="TRY" value="-1.7267" domi="0.0"/>
-        <param name="TS1" value="1.0313" domi="0.0"/>
-        <param name="TS2" value="-0.1359" domi="0.0"/>
-        <param name="TS3" value="0.4925" domi="0.0"/>
-        <param name="TS4" value="0.0772" domi="0.0"/>
-        <param name="MA1" value="0.0000" domi="0.0"/>
-        <param name="MA2" value="0.0000" domi="0.0"/>
-        <param name="MA3" value="0.0000" domi="0.0"/>
-      </shape>
-      <shape name="learnt_i">
-        <param name="HX" value="0.9465" domi="0.0"/>
-        <param name="HY" value="-2.5023" domi="0.0"/>
-        <param name="JX" value="-0.2000" domi="0.0"/>
-        <param name="JA" value="-1.8808" domi="0.0"/>
-        <param name="LP" value="-0.0321" domi="0.0"/>
-        <param name="LD" value="0.5695" domi="0.0"/>
-        <param name="VS" value="0.0812" domi="0.0"/>
-        <param name="VO" value="-0.1000" domi="0.0"/>
-        <param name="WC" value="0.0000" domi="0.0"/>
-        <param name="TCX" value="0.3312" domi="0.0"/>
-        <param name="TCY" value="-0.3901" domi="0.0"/>
-        <param name="TTX" value="1.9460" domi="0.0"/>
-        <param name="TTY" value="-1.0325" domi="0.0"/>
-        <param name="TBX" value="1.0255" domi="0.0"/>
-        <param name="TBY" value="-0.3348" domi="0.0"/>
-        <param name="TRX" value="-1.8530" domi="0.0"/>
-        <param name="TRY" value="-1.7267" domi="0.0"/>
-        <param name="TS1" value="0.3674" domi="0.0"/>
-        <param name="TS2" value="0.0340" domi="0.0"/>
-        <param name="TS3" value="-0.1274" domi="0.0"/>
-        <param name="TS4" value="-0.2887" domi="0.0"/>
-        <param name="MA1" value="0.0000" domi="0.0"/>
-        <param name="MA2" value="0.0000" domi="0.0"/>
-        <param name="MA3" value="0.0000" domi="0.0"/>
+      <shape name="@">
+        <param name="HX" value="1.0000" domi="100.0"/>
+        <param name="HY" value="-2.6430" domi="100.0"/>
+        <param name="JX" value="0.0000" domi="100.0"/>
+        <param name="JA" value="-2.0000" domi="100.0"/>
+        <param name="LP" value="-0.0700" domi="100.0"/>
+        <param name="LD" value="0.5240" domi="100.0"/>
+        <param name="VS" value="0.0000" domi="100.0"/>
+        <param name="VO" value="-0.1000" domi="100.0"/>
+        <param name="WC" value="0.0000" domi="100.0"/>
+        <param name="TCX" value="-0.4260" domi="100.0"/>
+        <param name="TCY" value="-0.7670" domi="100.0"/>
+        <param name="TTX" value="2.0360" domi="100.0"/>
+        <param name="TTY" value="-0.5780" domi="100.0"/>
+        <param name="TBX" value="1.1630" domi="100.0"/>
+        <param name="TBY" value="0.3210" domi="100.0"/>
+        <param name="TRX" value="-1.8530" domi="100.0"/>
+        <param name="TRY" value="-1.7267" domi="100.0"/>
+        <param name="TS1" value="0.0000" domi="100.0"/>
+        <param name="TS2" value="0.0460" domi="100.0"/>
+        <param name="TS3" value="0.1160" domi="100.0"/>
+        <param name="TS4" value="0.1160" domi="100.0"/>
+        <param name="MA1" value="0.0000" domi="100.0"/>
+        <param name="MA2" value="0.0000" domi="100.0"/>
+        <param name="MA3" value="0.0000" domi="100.0"/>
       </shape>
       <shape name="input">
-        <param name="HX" value="0.3296" domi="0.0"/>
-        <param name="HY" value="-2.3640" domi="0.0"/>
-        <param name="JX" value="-0.2000" domi="0.0"/>
-        <param name="JA" value="-4.3032" domi="0.0"/>
-        <param name="LP" value="0.0994" domi="0.0"/>
-        <param name="LD" value="0.8196" domi="0.0"/>
-        <param name="VS" value="1.0000" domi="0.0"/>
-        <param name="VO" value="-0.1000" domi="0.0"/>
-        <param name="WC" value="0.0000" domi="0.0"/>
-        <param name="TCX" value="1.3140" domi="0.0"/>
-        <param name="TCY" value="-1.2129" domi="0.0"/>
-        <param name="TTX" value="2.1675" domi="0.0"/>
-        <param name="TTY" value="-1.0976" domi="0.0"/>
-        <param name="TBX" value="-2.5197" domi="0.0"/>
-        <param name="TBY" value="-0.9137" domi="0.0"/>
-        <param name="TRX" value="-1.8530" domi="0.0"/>
-        <param name="TRY" value="-1.7267" domi="0.0"/>
-        <param name="TS1" value="1.0313" domi="0.0"/>
-        <param name="TS2" value="-0.1359" domi="0.0"/>
-        <param name="TS3" value="0.4925" domi="0.0"/>
-        <param name="TS4" value="0.0772" domi="0.0"/>
-        <param name="MA1" value="0.0000" domi="0.0"/>
-        <param name="MA2" value="0.0000" domi="0.0"/>
-        <param name="MA3" value="0.0000" domi="0.0"/>
+        <param name="HX" value="0.91239471747" domi="100.0"/>
+        <param name="HY" value="-3.22451935336" domi="100.0"/>
+        <param name="JX" value="-0.2000" domi="100.0"/>
+        <param name="JA" value="-4.02352109863" domi="100.0"/>
+        <param name="LP" value="0.985343093888" domi="100.0"/>
+        <param name="LD" value="0.399507738184" domi="100.0"/>
+        <param name="VS" value="0.602061535861" domi="100.0"/>
+        <param name="VO" value="-0.1000" domi="100.0"/>
+        <param name="WC" value="0.0000" domi="100.0"/>
+        <param name="TCX" value="0.313363877664" domi="100.0"/>
+        <param name="TCY" value="-0.587630258682" domi="100.0"/>
+        <param name="TTX" value="2.04933233797" domi="100.0"/>
+        <param name="TTY" value="-1.00861483766" domi="100.0"/>
+        <param name="TBX" value="1.86999102939" domi="100.0"/>
+        <param name="TBY" value="-0.116490227929" domi="100.0"/>
+        <param name="TRX" value="-1.8530" domi="100.0"/>
+        <param name="TRY" value="-1.7267" domi="100.0"/>
+        <param name="TS1" value="0.570665809529" domi="100.0"/>
+        <param name="TS2" value="0.154783114254" domi="100.0"/>
+        <param name="TS3" value="0.0602673775097" domi="100.0"/>
+        <param name="TS4" value="-0.0650867808467" domi="100.0"/>
+        <param name="MA1" value="0.0000" domi="100.0"/>
+        <param name="MA2" value="0.0000" domi="100.0"/>
+        <param name="MA3" value="0.0000" domi="100.0"/>
       </shape>
       <shape name="a">
-        <param name="HX" value="0.3296" domi="0.0"/>
-        <param name="HY" value="-2.3640" domi="0.0"/>
+        <param name="HX" value="0.3703" domi="0.0"/>
+        <param name="HY" value="-2.4450" domi="0.0"/>
         <param name="JX" value="0.0000" domi="0.0"/>
         <param name="JA" value="-4.3032" domi="0.0"/>
         <param name="LP" value="0.0994" domi="0.0"/>
@@ -184,10 +132,10 @@
         <param name="TCX" value="-0.4878" domi="0.0"/>
         <param name="TCY" value="-1.2129" domi="0.0"/>
         <param name="TTX" value="1.9036" domi="0.0"/>
-        <param name="TTY" value="-1.5744" domi="0.0"/>
+        <param name="TTY" value="-1.5740" domi="0.0"/>
         <param name="TBX" value="1.3212" domi="0.0"/>
         <param name="TBY" value="-1.0896" domi="0.0"/>
-        <param name="TRX" value="-2.4673" domi="0.0"/>
+        <param name="TRX" value="-2.4099" domi="0.0"/>
         <param name="TRY" value="-1.7963" domi="0.0"/>
         <param name="TS1" value="1.0313" domi="0.0"/>
         <param name="TS2" value="-0.1359" domi="0.0"/>
@@ -301,40 +249,14 @@
         <param name="MA2" value="0.0000" domi="0.0"/>
         <param name="MA3" value="0.0000" domi="0.0"/>
       </shape>
-      <shape name="ll-labial-nas(a)">
-        <param name="HX" value="0.3296" domi="100.0"/>
-        <param name="HY" value="-2.3640" domi="100.0"/>
-        <param name="JX" value="0.0000" domi="100.0"/>
-        <param name="JA" value="-2.8301" domi="100.0"/>
-        <param name="LP" value="0.0994" domi="100.0"/>
-        <param name="LD" value="-0.5691" domi="100.0"/>
-        <param name="VS" value="1.0000" domi="100.0"/>
-        <param name="VO" value="0.6187" domi="100.0"/>
-        <param name="WC" value="0.0000" domi="100.0"/>
-        <param name="TCX" value="0.0319" domi="100.0"/>
-        <param name="TCY" value="-1.3486" domi="100.0"/>
-        <param name="TTX" value="2.4373" domi="100.0"/>
-        <param name="TTY" value="-1.2570" domi="100.0"/>
-        <param name="TBX" value="1.6355" domi="100.0"/>
-        <param name="TBY" value="-0.6155" domi="100.0"/>
-        <param name="TRX" value="-2.3223" domi="100.0"/>
-        <param name="TRY" value="-1.3486" domi="100.0"/>
-        <param name="TS1" value="1.0313" domi="100.0"/>
-        <param name="TS2" value="-0.1359" domi="100.0"/>
-        <param name="TS3" value="0.4925" domi="100.0"/>
-        <param name="TS4" value="0.0772" domi="100.0"/>
-        <param name="MA1" value="0.0000" domi="100.0"/>
-        <param name="MA2" value="0.0000" domi="100.0"/>
-        <param name="MA3" value="0.0000" domi="100.0"/>
-      </shape>
     </shapes>
   </vocal_tract_model>
   <glottis_models>
     <glottis_model type="Titze" selected="1">
       <static_params>
-        <param index="0" name="Cord rest thickness" abbr="rest_thickness" unit="m" min="0.000380952380952" max="0.00114285714286" default="0.000571428571429" value="0.000571428571429"/>
-        <param index="1" name="Cord rest length" abbr="rest_length" unit="m" min="0.000666666666667" max="0.003" default="0.002" value="0.002"/>
-        <param index="2" name="Chink length" abbr="chink_length" unit="m" min="0.000125" max="0.000625" default="0.00025" value="0.00025"/>
+        <param index="0" name="Cord rest thickness" abbr="rest_thickness" unit="m" min="0.003000" max="0.010000" default="0.004500" value="0.003000"/>
+        <param index="1" name="Cord rest length" abbr="rest_length" unit="m" min="0.005000" max="0.020000" default="0.016000" value="0.005000"/>
+        <param index="2" name="Chink length" abbr="chink_length" unit="m" min="0.001000" max="0.005000" default="0.002000" value="0.001000"/>
       </static_params>
       <control_params>
         <param index="0" name="f0" abbr="f0" unit="Hz" min="40.000000" max="600.000000" default="120.000000" value="120.000000"/>
@@ -523,22 +445,22 @@
     </glottis_model>
     <glottis_model type="Triangular glottis" selected="0">
       <static_params>
-        <param index="0" name="Cord length" abbr="cord_length" unit="m" min="0.005000" max="0.020000" default="0.013000" value="0.007000"/>
-        <param index="1" name="L. rest thickness" abbr="lower_rest_thickness" unit="m" min="0.001000" max="0.005000" default="0.002500" value="0.001800"/>
+        <param index="0" name="Cord length" abbr="cord_length" unit="m" min="0.005000" max="0.020000" default="0.013000" value="0.013000"/>
+        <param index="1" name="L. rest thickness" abbr="lower_rest_thickness" unit="m" min="0.001000" max="0.005000" default="0.002500" value="0.002400"/>
         <param index="2" name="U. rest thickness" abbr="upper_rest_thickness" unit="m" min="0.000100" max="0.002000" default="0.000500" value="0.000600"/>
-        <param index="3" name="L. rest mass" abbr="lower_rest_mass" unit="kg" min="0.000010" max="0.000200" default="0.000125" value="0.000060"/>
-        <param index="4" name="U. rest mass" abbr="upper_rest_mass" unit="kg" min="0.000010" max="0.000200" default="0.000025" value="0.000020"/>
+        <param index="3" name="L. rest mass" abbr="lower_rest_mass" unit="kg" min="0.000010" max="0.000200" default="0.000125" value="0.000120"/>
+        <param index="4" name="U. rest mass" abbr="upper_rest_mass" unit="kg" min="0.000010" max="0.000200" default="0.000025" value="0.000030"/>
         <param index="5" name="L. damping ratio" abbr="lower_damping_ratio" unit="" min="0.000000" max="3.000000" default="0.100000" value="0.100000"/>
         <param index="6" name="U. damping ratio" abbr="upper_damping_ratio" unit="" min="0.000000" max="3.000000" default="0.600000" value="0.600000"/>
-        <param index="7" name="L. spring k" abbr="lower_spring_k" unit="N/m" min="0.000000" max="400.000000" default="80.000000" value="240.000000"/>
-        <param index="8" name="U. spring k" abbr="upper_spring_k" unit="N/m" min="0.000000" max="400.000000" default="8.000000" value="24.000000"/>
+        <param index="7" name="L. spring k" abbr="lower_spring_k" unit="N/m" min="0.000000" max="400.000000" default="80.000000" value="80.000000"/>
+        <param index="8" name="U. spring k" abbr="upper_spring_k" unit="N/m" min="0.000000" max="400.000000" default="8.000000" value="8.000000"/>
         <param index="9" name="L. contact spring k" abbr="lower_contact_spring_k" unit="N/m" min="0.000000" max="500.000000" default="240.000000" value="360.000000"/>
         <param index="10" name="U. contact spring k" abbr="upper_contact_spring_k" unit="N/m" min="0.000000" max="500.000000" default="24.000000" value="24.000000"/>
-        <param index="11" name="Coupling spring k" abbr="coupling_spring_k" unit="N/m" min="0.000000" max="400.000000" default="25.000000" value="72.000000"/>
+        <param index="11" name="Coupling spring k" abbr="coupling_spring_k" unit="N/m" min="0.000000" max="400.000000" default="25.000000" value="25.000000"/>
         <param index="12" name="Inlet length" abbr="inlet_length" unit="m" min="0.000500" max="0.010000" default="0.004000" value="0.004000"/>
         <param index="13" name="Outlet length" abbr="outlet_length" unit="m" min="0.000500" max="0.005000" default="0.001000" value="0.001000"/>
-        <param index="14" name="Natural F0" abbr="natural_f0" unit="Hz" min="20.000000" max="500.000000" default="124.600000" value="302.000000"/>
-        <param index="15" name="dF0/dQ" abbr="f0_div_q" unit="Hz" min="20.000000" max="500.000000" default="110.180000" value="314.000000"/>
+        <param index="14" name="Natural F0" abbr="natural_f0" unit="Hz" min="20.000000" max="500.000000" default="124.600000" value="124.600000"/>
+        <param index="15" name="dF0/dQ" abbr="f0_div_q" unit="Hz" min="20.000000" max="500.000000" default="110.180000" value="110.180000"/>
       </static_params>
       <control_params>
         <param index="0" name="f0" abbr="f0" unit="Hz" min="40.000000" max="600.000000" default="120.000000" value="120.000000"/>
@@ -707,3 +629,537 @@
     </glottis_model>
   </glottis_models>
 </speaker>
+r>
+
+
+
+
+
+
+r>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -316,17 +316,19 @@ class functions(params):
 		
 		
 		self.population_size = self.n_workers - 1
-		
+
 		# numpy random seed w.r.t. global runtime
 		numpy.random.seed()
 		# numpy random seed w.r.t. worker
 		numpy.random.seed(numpy.random.randint(256) * self.rank+1)
-		
+
 		if self.n_workers == 1:	  # serial mode -> disable parallel features
 			lambda_list = [4,6,7,8,8,9,9,10,10,10,11,11,11,11,12,12,12,12]
 				# list of recommended lambda values for given number of
-				#  dimenions (see Hansen)					
+				#  dimensions (see Hansen)					
 			self.population_size = lambda_list[self.N_dim-1]
+			
+		
 
 	
 	#############################################################################################################################################
@@ -811,20 +813,21 @@ class functions(params):
 							if self.targets_learnt:
 								random_target = random.choice(self.targets_learnt)
 								
+								print 'Agent chose to restart search of current target from learnt parameters of target /%s/'%random_target
+								
 							else:
 								random_target = random.choice(self.targets)
+								print 'Agent chose to restart search of current target from (imperfect) parameters of target /%s/'%random_target
 							x_mean = self.learner_pars_rel[random_target][self.i_pars_to_learn]
 								
-							
-							print x_mean
-							print 'agent chose to restart search from learnt parameters of '+random_target
 
 						else:
-							self.update_learner_pars(self.neutral_pars_rel[self.i_pars_to_learn])
-							
+							x_mean = self.neutral_pars_rel[self.i_pars_to_learn]
+							print 'Agent chose to restart search of current target from neutral parameters.'
 							if current_sigma < 0.9 and not self.keep_sigma_constant:
 								current_sigma += 0.1
 								sigma = current_sigma
+								print "Sigma increased!"
 								
 						
 						
@@ -880,8 +883,6 @@ class functions(params):
 			self.update_learner_pars(x_mean)
 			
 			
-			if sigma > 0.9:
-				sigma = 0.9
 				
 			# Save state! (For all targets, save current reward, sigma (0, if not selected as current aim of the learner) and the parameters.)
 			# --------------------------			
@@ -1434,13 +1435,18 @@ class functions(params):
 		
 		self.target_index = numpy.where(generation_maxima==max_confidence_unlearnt)[0][0]
 		
-		self.target = self.targets[self.target_index]
+		next_target = self.targets[self.target_index]
+		
+		if next_target != self.target:
+			"\nChanging objective! Found higher confidence samples for target %s!\n"%next_target
+		
+		self.target = next_target
 		
 		if self.target in self.targets_learnt:
 			# This might still happen (if, e.g. more than one value of max_confidence_unlearnt is found in generation_maxima)
 			# For example: generation maxima is: array([ 0.,  0.,  0.,  0.,  0.,  1.])
 			# In this case, simply pick a random non-learnt target
-			self.target = random.choice(self.targets[unlearnt_target_indices])
+			self.target = random.choice([t for t in self.targets if self.targets.index(t) in unlearnt_target_indices])
 			self.target_index = self.targets.index(self.target)			
 		
 	

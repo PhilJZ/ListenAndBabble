@@ -50,7 +50,7 @@ class parameters(object):
 		
 		# Which main steps shall we do?
 		# Here, we tell our project shell in the main directory what do actually do.
-		self.execute_main_script = {'ambient_speech':False,'hear':False,'learn':True}
+		self.execute_main_script = {'ambient_speech':False,'hear':False,'learn':False,'shell_analysis':True}
 		
 	
 	
@@ -74,7 +74,7 @@ class parameters(object):
 			#These wav files are used as prototypes of that specific gesture sound. (see "learn")
 		self.do_make_proto = False
 			#Shall those set-up speakers and their synthesized gestures (.wav files) be analyzed (formants, parameter developement of shapes over years e.g.)?
-		self.do_setup_analysis = False  
+		self.do_setup_analysis = False
 			#Shall speech samples (used to train the auditory system) be produced? (Takes a lot of time, depending on how many samples are produced..)
 		self.do_make_samples = False
 			#Shall the user be given the chance to change classifications? Make a backup of the samples, before executing this..
@@ -170,24 +170,21 @@ class parameters(object):
 		"""
 		# Jobs to be done..?
 				#Compare leaky networks with non-leaky networks?
+				#If false, only compute leaky networks.
 		self.do_compare_leaky = False
 				#Turns plotting on
 		self.do_plot_hearing = True
 				#After chosing a final output ESN, analyze it (thresholds for later rewards e.g.) ?
 		self.do_analyze_output_ESN = False # Not yet implemented!
 				#Analyze partially trained ESNs? (not including all speakers in the data)
-		self.do_partial_ESN_analysis = False # Look at 'hear' (not functions) to understand this step.
-		
-				# Provide (explaining) output during execution?
-		self.be_verbose_in['hear'] = False
 		
 	
 	
 	
 		# Network parameters
 		# --------------------------------------------------------------------------------------------------------------
-			#Network sizes for variation [default: 10,20,50]
-		self.reservoir_sizes = [1]#10,100,1000,2000] # 2000 is about the maximum for my pc.
+			#Network sizes for variation ... default: [10,100,100]
+		self.reservoir_sizes = [1000]
 			#Number of simulations per worker. [default: 1]
 		self.trains_per_worker = 1
 			#Leak rate of leaky reservoir neurons. [default: 0.4]
@@ -200,7 +197,7 @@ class parameters(object):
 		# Training & Testing
 		
 		self.n_samples = {
-			'train' 	: 	1,#8,2
+			'train' 	: 	9,
 			'test'		:	1
 									}
 		# Use:
@@ -211,7 +208,9 @@ class parameters(object):
 		# see if they are categorized correctly.. How many 'test' samples? > self.n_samples['test']
 	
 	
-		# Speaker generalisation
+		# Speaker generalisation?
+		# The ESN will be trained on all samples above that age and be tested on all samples up to that age.
+		# Put False, if ESN should train on all speakers
 		self.generalisation_age = 2
 		
 		
@@ -268,11 +267,14 @@ class parameters(object):
 				# All. Be careful not to omit the brackets!
 		#self.pars_to_learn = ["all"]
 			#simulate flat tongue, i.e. set all TS to 0 again and again? This only kicks into action, if you're not learning the tongue side elevations too.
-		self.flat_tongue = True
+		self.flat_tongue = False
 		
 				# The ESN we're using:
 		# --------------------------------------------------------------
-		self.ESN_path = '/data/output/hear/'+self.sp_group_name+'/current_auditory_system.flow'
+		self.ESN_path = '/data/output/hear/'+self.sp_group_name+'/worker_0reservoir1000_leakyTrue.flow'
+		
+		#self.ESN_path = raw_input("Please Enter the (relative) path to the reservoir (ESN) which is to be used in the babbling stage!:\n\t>")
+		
 			# Sequence of nodes:
 		#self.ESN_sequence = ['a','i','u','null'] # For the orig. ESNs (Murakami)
 		self.ESN_sequence = ["a","e","i","o","u",'null']
@@ -299,7 +301,7 @@ class parameters(object):
 		# Reward computation and sigma
 		# --------------------------------------------------------------
 			#step-size = sigma (default=0.4)
-		self.sigma_0 = 0.4
+		self.sigma_0 = 0.5
 			#keep sigma 0 constant? Of course, sigma will still change, according to the change of fitness. But 'current_sigma' in the code is a value, that the (constantly
 			# changing) sigma will always go back to. (Go through 'learn_functions' looking for current_sigma and sigma, to see how they interact.
 		self.keep_sigma_constant = False
@@ -322,7 +324,7 @@ class parameters(object):
 		# Convergence Criteria.
 		# --------------------------------------------------------------
 		# threshold for convergence (reward threshold) - The confidence returned from the ESN. (originally 0.5 for all vowels)
-		self.convergence_thresholds = {'a':0.5,'e':0.3,'i':0.3,'o':0.3,'u':0.3}
+		self.convergence_thresholds = {'a':0.5,'e':0.5,'i':0.5,'o':0.5,'u':0.5}
 			#maximal conditioning number. (Covariance matrix)
 		self.conditioning_maximum = 1e14
 			# Parameter or Reward convergence range. This is the size of the parameter/reward window in which, if the last few generations stayed, the program will conclude,
@@ -330,9 +332,13 @@ class parameters(object):
 		self.range_for_convergence = 0.05
 			# The convergence interval is the number of datapoints which are checked if they converge in reward or parameters. This value is computed in the algorithm itself, 
 			# however, the user can set the interval here. (If automatic, simply put False).
-		self.user_convergence_interval = 10
+			# Must be above the size of one generation!
+		self.user_convergence_interval = 20
 			# Number of res
 		self.N_reservoir = 5
+			# Optional. (If you want to use the recommended amount of samples for each iteration, simply put False.) 
+			# If you set population size, convergence interval also must be set (ca. 3 x population size)
+		self.population_size = 15
 		
 
 

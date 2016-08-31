@@ -27,6 +27,8 @@ import numpy
 import random
 import pdb
 
+from math import *
+
 import matplotlib
 matplotlib.use('Agg')
 
@@ -76,9 +78,15 @@ class functions(params):
 		self.vowels = self.amb_speech.vowels[:]
 		self.vowel_data_n = self.amb_speech.sampling['n_samples']
 		self.null_data_n = self.amb_speech.sampling_null['n_samples']
+		self.age_m = self.amb_speech.age_m
+		self.age_f = self.amb_speech.age_f
+		
 		
 		if '@' in self.vowels:
 			self.vowels.pop(self.vowels.index('@'))
+		
+		self.vowels_and_null = self.vowels[:]
+		self.vowels_and_null.append('null')
 		
 		# Total number of vowels learned
 		self.n_vowels= len(self.vowels)
@@ -108,11 +116,10 @@ class functions(params):
 		# labels will be stored, - then mixed up randomly and a test & training set is picked
 		# from them. ( in get_samples() and get_sets())
 		self.labeled_samples = dict()
-		self.labeled_null_samples = dict()
-		for vowel in self.vowels:
-			self.labeled_samples[vowel] = [ ( [], numpy.array([]) ) ]
+		for vowel in self.vowels_and_null:
+			self.labeled_samples[vowel] = []
+			self.labeled_samples[vowel+'_speaker_label'] = []
 			
-		self.labeled_null_samples = [ ( [], numpy.array([]) ) ]
 		
 		self.labels = dict()
 		self.null_labels = dict()
@@ -120,8 +127,6 @@ class functions(params):
 		# Training and test sets
 		self.training_set = list()
 		self.test_set = list()
-		self.training_set = [ ( numpy.array([]), numpy.array([]) ) ]
-		self.test_set = [ ( numpy.array([]), numpy.array([]) ) ]
 		
 		# Verbosity
 		self.verbose = self.be_verbose_in['hear']
@@ -204,7 +209,19 @@ class functions(params):
 		E.g. self.sample["a"] could look like this: [...,( [..i-th sound...],[i-th label (timerange x n_vowel+1)] ),([], [ [][] ]),...]
 		
 		Basic procedure: Do everything for each vowel and then in the end also for the null class. 
+		
 		"""
+		def get_speaker_from_filename(filename):
+			"""
+			Samples have a certain filename, from which we can deduce the speaker that produced that sample
+			"""
+			
+			filename = filename[filename.rindex('_')+1:] # Get rid of all before the number (rindex gets the last index)
+			filename = filename[:-7] # Get rid of .dat.gz at the end
+			number = int(filename)
+			speaker = number % len(self.speakers)
+			return speaker
+			
 		
 		# The timerange included in the classification (36 slots in the label plot for each vowel)
 		self.n_timesteps = 36
@@ -232,7 +249,7 @@ class functions(params):
 		
 		# Representative samples:
 		# -----------------------------------------------------------------
-		for vowel in self.vowels:
+		for vowel in self.vowels_and_null:
 			
 			# Path of the vowel samples. Get a list of all the files in the dir.
 			current_path = self.input_path+'/'+vowel
@@ -240,29 +257,22 @@ class functions(params):
 			
 			for item in files:
 				if '.dat.gz' in item:
+				
+					if vowel == 'null':
+						label = self.null_labels.copy()
+					else:
+						label = self.labels[vowel].copy()
 					# (self.labeled_samples[vowel] is a list. Append a tuple to it.)
 					
-					self.labeled_samples[vowel].append((numpy.load(gzip.open(current_path+'/'+item)),
-												self.labels[vowel].copy()))
-					# format: list of tuples of numpy arrays: [ ( numpy.array([]), numpy.array([]) ) ]
+					self.labeled_samples[vowel].append((numpy.load(gzip.open(current_path+'/'+item)),label))
+					# format: list of lists of numpy arrays or integers: [ [ numpy.array([]), numpy.array([]), int] ]
+					
+					# Append the speaker number.
+					speaker = get_speaker_from_filename(item)
+					self.labeled_samples[vowel+'_speaker_label'].append(speaker)
 		# -----------------------------------------------------------------
-			
-			
 			
 		
-		# Null samples:
-		# -----------------------------------------------------------------
-		# Path of the null samples. Get a list of all the files in the dir.
-		current_path = self.input_path+'/null'
-		files = os.listdir(current_path)
-	
-		for item in files:
-			if '.dat.gz' in item:
-				# (self.labeled_null_samples is a list. Append a tuple to it.)
-				self.labeled_null_samples.append((numpy.load(gzip.open(current_path+'/'+item)),
-											self.null_labels.copy()))
-				# format: list of tuples of numpy arrays: [ ( numpy.array([]), numpy.array([]) ) ]
-		# -----------------------------------------------------------------
 		
 		
 	
@@ -274,58 +284,88 @@ class functions(params):
 		These are picked from all the samples we got in 'get_samples'
 		"""
 		
-		# Refresh initialisation
-		self.training_set = []
-		self.test_set = []
 		
-		# We created representative samples of /a/, /e/ etc. as well as null samples in ambient_speech.py.
-		# Now, we'll see how many null, or /a/, or /e/ sounds we want.
-		n_train = self.n_samples['train'] * self.n_speakers
-		# (remember: self.n_samples[...] was defined as 'per speaker'.
-		
-		# Same for test samples
-		n_test = self.n_samples['test'] * self.n_speakers
-		
-		
-		for vowel in self.vowels:
+		if not self.testing_set_speakers:
 			
-			# Get representative part of training/test set.
-			random.shuffle(self.labeled_samples[vowel])
+			# Chose test and training set at random!
 			
-			# If many vowels were moved out of a folder, our list of labeled samples might
-			# be quite short - shorter even than training_samples + test_samples!
-			for sample in range(n_train):
-				try:
-					self.training_set.append(self.labeled_samples[vowel][sample])
-				except IndexError:
-					raise RuntimeError('Too few '+vowel+' samples!')
-					#self.training_set.append(random.choice(self.labeled_samples[vowel]))
+			# Refresh initialisation
+			self.training_set = []
+			self.test_set = []
+		
+			# We created representative samples of /a/, /e/ etc. as well as null samples in ambient_speech.py.
+			# Now, we'll see how many null, or /a/, or /e/ sounds we want.
+			n_train = self.n_samples['train'] * self.n_speakers
+			# (remember: self.n_samples[...] was defined as 'per speaker'.
+		
+			# Same for test samples
+			n_test = self.n_samples['test'] * self.n_speakers
+		
+		
+			for vowel in self.vowels_and_null:
+			
+				# Get representative part of training/test set.
+				random.shuffle(self.labeled_samples[vowel])
+			
+				# If many vowels were moved out of a folder, our list of labeled samples might
+				# be quite short - shorter even than training_samples + test_samples!
+				for sample in range(n_train):
+					try:
+						self.training_set.append(self.labeled_samples[vowel][sample])
+					except IndexError:
+						raise RuntimeError('Too few '+vowel+' samples!')
+						#self.training_set.append(random.choice(self.labeled_samples[vowel]))
 					
 			
-			for sample in range(n_train,n_train+n_test):
-				try:
-					self.test_set.append(self.labeled_samples[vowel][sample])
-				except IndexError:
-					raise RuntimeError('Too few '+vowel+' samples!')
-					#self.test_set.append(random.choice(self.labeled_samples[vowel]))
+				for sample in range(n_train,n_train+n_test):
+					try:
+						self.test_set.append(self.labeled_samples[vowel][sample])
+					except IndexError:
+						raise RuntimeError('Too few '+vowel+' samples!')
+						#self.test_set.append(random.choice(self.labeled_samples[vowel]))
 		
 		
-		# Get non-representative (null) part of training/test set.
-		random.shuffle(self.labeled_null_samples)
-		for sample in range(n_train):
-			try:
-				self.training_set.append(self.labeled_null_samples[sample])
-			except IndexError:
-				print 'Too few null samples!'
-				raw_input('Proceed?')
 		
-		for sample in range(n_train,n_train+n_test):
-			try:
-				self.test_set.append(self.labeled_null_samples[sample])
-			except IndexError:
-				print 'Too few null samples!'					
-				raw_input('Proceed?')
-	
+		
+		
+		elif type(self.testing_set_speakers) == list and not self.training_set and not self.test_set:
+			# This is the case of excluding speakers from the training set and using them for the test set.
+			
+			# Refresh initialisation
+			self.training_set = []
+			self.test_set = []
+			
+			for vowel in self.vowels_and_null:
+			
+				for sample in range(len(self.labeled_samples[vowel])):
+					
+					if self.labeled_samples[vowel+'_speaker_label'][sample] in self.testing_set_speakers:
+						self.test_set.append(self.labeled_samples[vowel][sample])
+					else:
+						self.training_set.append(self.labeled_samples[vowel][sample])		
+					
+			
+			# Change this from a list to a string (this is a flag for the next time round.)
+			self.testing_set_speakers = "already set"
+		
+			
+			
+		elif self.testing_set_speakers == "already set":
+		
+			# in this case, we only need to shuffle them..
+			pass
+			
+		else:
+		
+			# Something has gone wrong.
+			print self.testing_set_speakers
+			debug()
+			print "Length of training set "+str(len(self.training_set))
+			print "Length of test set "+str(len(self.test_set))
+			raise RuntimeError("Illegal use of get_sets()")
+			
+		
+		
 		
 		# Shuffle representative with non-represantive training elements.
 		random.shuffle(self.training_set)
@@ -379,7 +419,7 @@ class functions(params):
 				# Leaky (done anyway)
 				# ...........................................................
 				
-				print('worker', self.rank, 'of', self.n_workers, 'simulating leaky network of size', self.reservoir_sizes[self.current_reservoir], 
+				print('worker', self.rank+1, 'of', self.n_workers, 'simulating leaky network of size', self.reservoir_sizes[self.current_reservoir], 
 																							'('+str(train+1)+'/'+str(self.trains_per_worker)+')')
 																							
 				# call learn function
@@ -394,7 +434,7 @@ class functions(params):
 					# Non-leaky (optional)
 					# ...........................................................
 					
-					print('worker', self.rank, 'of', self.n_workers, 'simulating non-leaky network of size', self.reservoir_sizes[self.current_reservoir], 
+					print('worker', self.rank+1, 'of', self.n_workers, 'simulating non-leaky network of size', self.reservoir_sizes[self.current_reservoir], 
 																							'('+str(train+1)+'/'+str(self.trains_per_worker)+')')
 					
 					# call learn function to execute one simulation run
@@ -414,6 +454,9 @@ class functions(params):
 				self.c_matrices['leaky'][self.current_reservoir] += c_matrix_leaky
 				# ----------------------------------------------------------------
 				
+				if (c_matrix_leaky>1).any():
+					debug()
+				
 				# Print current cmatrices?
 				if self.verbose and self.do_compare_leaky:
 					print('c_matrix_leaky:', c_matrix_leaky)
@@ -421,6 +464,8 @@ class functions(params):
 					
 				elif self.verbose:
 					print('c_matrix_leaky:', c_matrix_leaky)
+					
+				
 						
 
 		# Divide by number of trains per worker
@@ -430,6 +475,8 @@ class functions(params):
 		else:
 			self.c_matrices['leaky'] /= self.trains_per_worker
 		
+		if (self.c_matrices['leaky']>1).any():
+			debug()
 		
 		# Print cmatrices?
 		if self.do_compare_leaky and self.verbose:
@@ -906,47 +953,7 @@ class functions(params):
 	
 	
 	
-	
-	
-	
-	
-	
-	def exclude_speakers_from_data(self,excluded):
-		"""
-		A function that lets us remove certain speakers from the ESN - training data and saves them in a "excluded_samples" directory in "hear".
-		Also, the original samples are saved in a compressed file in data/output/hear.
-		"""
-	
-		# Each sample is labeled with a sample number. To get the right sample numbers to be excluded, we can look at how these samples were produced.
-		# From this we gather, that sample 0 was produced by speaker 0, sample 1 by speaker 1, etc until sample 21. After that sample 22 was produced
-		# by speaker 0 again, 23 by 1, 24 by 2, etc. Thus:
-		# 													speaker_number = sample_number modulo 22 (or the size of the group) (len(self.speakers))
-		# Thus: sample_numbers = speaker_number + n*22 (n from 0 to n_samples per speaker)
-		# ----------------------------------------------------------------------------------------------------------------------------------------------
-	
-	
-		from math import *
-	
-		excluded_samples = list()
-	
-		for n in range(self.vowel_data_n):
-		
-			for speaker in excluded:
-				debug() # Check if all datatypes are int (next step)
-				excluded_samples.append( len(self.speakers)*n + speaker )
-			
-	
-	
-	
-		# Look through all the samples, and remove those that are in the excluded samples.
-		# ----------------------------------------------------------------------------------------------------------------------------------------------
-	
-	
-	
-	
-	
-	
-	
+
 	
 	
 	

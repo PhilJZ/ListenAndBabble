@@ -54,40 +54,16 @@ class hear(funcs):
 		
 		# Setting up correct paths and folders
 		self.setup_folders()
-	
-		# Master plots info
-		if self.rank == 0:
-			print 80*"-"
-			print('learning', self.n_vowels, 'vowels')
-			print('averaging over', self.n_trains, 'trials')
-			print('network size:', self.reservoir_sizes)
-			print('using compressed DRNL output:', self.compressed_output)
-			print('comparing leaky network to non-leaky network:',self.do_compare_leaky)
-			print('verbose mode:', self.verbose)
-			print('plot mode:', self.do_plot_hearing)
-			print 80*"-"
-	
+			
 	
 		# Make reservoir states inspectable for plotting..
 		self.make_Oger_inspectable()
 		
 		
-		# Get all the samples produced in ambient speech..	
-		self.get_samples()
-	
-	
-		# Simulate ESN (basically the main function, which then in itself calls the interesting function 'learn')..
-		self.simulate_ESN()	
-		
-		
-		if self.rank == 0:
-			self.master_collect_and_postprocess(choose=False) # SEE BELOW. Set choose True if you want to chose one of the produced ESNs for learning (essentially rename it).
-		
-		
-		
-		# Partial ESN analysis. See get_params.
-		if self.do_partial_ESN_analysis:			
+		# Only partially train the ESN.  analysis. See get_params.
+		if self.generalisation_age:
 			# Basically run through most of what we've done already, but for different sample data.
+			# Train only on speakers that are over the age of firstspeaker_male.
 			# --------------------------------------------------------------------------------------------------------------
 			
 			# Get the first speaker to include in data samples.
@@ -95,36 +71,36 @@ class hear(funcs):
 			try:
 				firstspeaker_male = self.age_m.index(self.generalisation_age)
 			except ValueError:
-				firstspeaker_male = 1000
+				print "Error! No generalisation age!"
+				debug()
 			try:
 				firstspeaker_female = self.age_f.index(self.generalisation_age)
 			except ValueError:
-				firstspeaker_female = 1000
+				print "Error! No generalisation age!"
+				debug()
 			firstspeaker = min(firstspeaker_female,firstspeaker_male)
 			# -------------------------------------------------------------------------
 			
-			
-			
 			# Execute this 'setup' only by master.
 			if self.rank == 0: 
-				list_of_excluded = [speaker for speaker in self.speakers if speaker < firstspeaker]
+				# A list of speakers that are excluded in training, but used for testing.
+				self.testing_set_speakers = [speaker for speaker in self.speakers if speaker < firstspeaker]
 				
-				self.exclude_speakers_from_data(list_of_excluded)
-		
-			
-			self.get_samples()
-			
-			self.simulate_ESN()
-			
-			if self.rank == 0:
-				self.master_collect_and_postprocess(choose=False) # since choose is False, we call self.theshold_analysis separately..
-			
-			self.threshold_analysis()
+		else:
+			# The normal case. Train using data from all speakers. Training set and test set are randomly drawn.
+			self.testing_set_speakers = False
 		
 		
+		# Get all the samples produced in ambient speech..
+		self.get_samples()
+	
+	
+		# Simulate ESN (basically the main function, which then in itself calls the interesting function 'learn')..
+		self.simulate_ESN()
+					
 		
-			
-			
+		if self.rank == 0:
+			self.master_collect_and_postprocess(choose=False) # SEE BELOW. Set choose True if you want to chose one of the produced ESNs for learning (essentially rename it).
 		
 		
 		# Save this class instance
@@ -159,7 +135,8 @@ class hear(funcs):
 			self.final_cmatrices['non-leaky'] = self.c_matrices['non-leaky'] if self.do_compare_leaky else []
 	
 		# Post-processing only by master (write results to a file)
-	
+		
+		
 		self.write_and_plot_results()
 	
 	

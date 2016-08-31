@@ -92,7 +92,8 @@ class learn(funcs):
 		print 80*"-"
 		print "Setting up multi processing related value: Population size"
 		print " -- >  calling get_population_size()"
-		self.get_population_size()
+		if not self.population_size: #If not set by the user.
+			self.get_population_size()
 		print 80*"-"
 		
 		
