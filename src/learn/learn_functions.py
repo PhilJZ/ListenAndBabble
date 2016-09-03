@@ -127,22 +127,24 @@ class functions(params):
 		self.vowels = self.amb_speech.vowels[:]
 		self.n_vowels = len(self.vowels)
 		
+		# Get rid of /schwa/
+		if '@' in self.vowels:
+			self.vowels.pop(self.vowels.index('@'))
+		
+		self.ESN_std_sequence = self.vowels[:]
+		self.ESN_std_sequence.append('null')
+		
 			# Targets to be learnt (vowels)
 		if self.targets == "all":
 			self.targets = self.vowels[:]
-			if '@' in self.targets:
-				self.targets.pop(self.targets.index('@'))
+			self.targets.pop(self.targets.index('null'))
 		
 		self.target_index = self.targets.index(self.target)
 		
 		# Targets will be moved to this array when learnt:
 		self.targets_learnt = []
 		self.n_targets = len(self.targets)
-			
-		# Now that we've finished with the targets, add schwa to vowels.
-		if not '@' in self.vowels:
-			self.vowels.append('@')
-		# That mean, we want /schwa/ in vowels but not in targets!	
+		
 		
 		# Parameters from ambient speech
 			# Get the relative pitch of our learner (will be added to abs pitch 52)
@@ -771,26 +773,37 @@ class functions(params):
 
 				# Escape flat fitness
 				# -----------------------------------------------------------------------------
-				if sorted_fitness[0] == sorted_fitness[int(numpy.ceil(0.7*self.population_size))]:
+				if False:#sorted_fitness[0] == sorted_fitness[int(numpy.ceil(0.7*self.population_size))]:
 					sigma *= numpy.exp(0.2+c_s/damps)
 					print 'Warning: flat fitness, consider reformulating the objective'
 					print 'Fitness (highest first):', sorted_fitness
-
+					
+				
+				# Do we have anough data points to even thing about convergence (and termination)?
+				enough = False
 				while len(x_recent) > convergence_interval - 1:
 					x_recent.pop(0)
+					enough = True
 				while len(sorted_fitness_recent) > convergence_interval - 1:
 					sorted_fitness_recent.pop(0)
+					enough = True
+					
 				x_recent.append(x_mean)
 				sorted_fitness_recent.append(fitness_mean)
 				
-				
+				# Compute termination criteria (C_matrix_criterium not dependant on how many data points)
 				cond = numpy.linalg.cond(C)
-				recent_params_range = numpy.ptp(x_recent, axis=0)
-				converged_params = (recent_params_range < self.range_for_convergence).all()
-				converged_fitness = (numpy.ptp(sorted_fitness_recent) < self.range_for_convergence)
 				C_matrix_criterium = (cond > self.conditioning_maximum)
+				if enough:
+					recent_params_range = numpy.ptp(x_recent, axis=0)
+					converged_params = (recent_params_range < self.range_for_convergence).all()
+					converged_fitness = (numpy.ptp(sorted_fitness_recent) < self.range_for_convergence)
+				else:
+					converged_params = False
+					converged_fitness = False
 				
 				termination = converged_fitness or converged_params or C_matrix_criterium
+				
 				
 				if termination:
 					print 'convergence criterion reached.'
@@ -804,20 +817,16 @@ class functions(params):
 						B_D = numpy.dot(B, D)		   
 						C = numpy.dot(B_D, (B_D).T)
 						i_eigen = 0
-						if self.random_restart:
+						if self.random_restart and self.targets_learnt:
 							if current_sigma < 0.9 and not self.keep_sigma_constant:
 								current_sigma += 0.05			  
 							sigma = current_sigma
 							
-							# Preferably chose a already chosen target
-							if self.targets_learnt:
-								random_target = random.choice(self.targets_learnt)
+							# Preferably chose a already learned target
+							random_target = random.choice(self.targets_learnt)
+						
+							print 'Agent chose to restart search of current target from learnt parameters of target /%s/'%random_target
 								
-								print 'Agent chose to restart search of current target from learnt parameters of target /%s/'%random_target
-								
-							else:
-								random_target = random.choice(self.targets)
-								print 'Agent chose to restart search of current target from (imperfect) parameters of target /%s/'%random_target
 							x_mean = self.learner_pars_rel[random_target][self.i_pars_to_learn]
 								
 
@@ -942,7 +951,7 @@ class functions(params):
 			wav_path = synthesize.wav_path
 		
 			# Plot the mean sample votes for the learnt vowels.
-			confidence[learnt_target],mean_sample_vote[learnt_target] = self.get_confidence(self,wav_path,plot=True)
+			confidence[learnt_target],mean_sample_vote[learnt_target] = self.get_confidence(self.wav_path,True)
 		
 		
 		# Main function returns final data.
@@ -999,7 +1008,7 @@ class functions(params):
 
 		
 		
-		self.confidences = numpy.zeros([self.population_size,len(self.vowels)])
+		self.confidences = numpy.zeros([self.population_size,len(self.ESN_std_sequence)])
 		self.energy_cost = numpy.zeros(self.population_size)
 		self.evaluated_boundary_penalty = numpy.zeros(self.population_size)
 		self.z_offspring = numpy.zeros([self.population_size, self.N_dim])
@@ -1129,9 +1138,9 @@ class functions(params):
 		# If the gesture was 'airtight', return 0 confidence for all targets.
 		# This distinction simply skips the last part (which would also do the job for silent gestures). > Speedup!
 		if not synthesize.sound_is_valid:
-		
+			
 			# Return a penalty as confidence.
-			penalty = numpy.zeros([len(self.vowels)])
+			penalty = numpy.zeros([len(self.ESN_std_sequence)])
 			
 			penalty[-1] = 1
 			
@@ -1141,23 +1150,23 @@ class functions(params):
 		else:
 			# Call the function, right below..
 			confidence,mean_sample_vote = self.get_confidence(wav_path,plot=False)
-			
-			
+		
+		
 			return confidence
 			
 			
 
-			#           ^
-			#           ^
-			#           ^
-			#           ^
-			#           ^			
-			#           ^
-			# Called in | upper function
+				#           ^
+				#           ^
+				#           ^
+				#           ^
+				#           ^			
+				#           ^
+				# Called in | upper function
 			
 			
 			
-	def get_confidence(self,wav_path,plot=False):
+	def get_confidence(self,wav_path,plot):
 		"""
 		Processes sound (using functions from ambient speech) and used the ESN to produce a sample vote (plot to see what it is..), and the confidences.
 		"""
@@ -1191,21 +1200,24 @@ class functions(params):
 		def shift_and_normalize_activity(x):
 			
 			x_shifted = x - x.min()
-			#x_shifted /= x.max()
+			x_shifted /= x.max()
 			return x_shifted
 		
 		#sample_vote = normalize_activity(sample_vote)
 		sample_vote = shift_and_normalize_activity(sample_vote)
 		
-		# Change sequence of nodes.
-		# Maybe remove this, and make a separate function to save runtime?
-		standard_seq = self.targets[:]
-		standard_seq.append('null')
-		new = numpy.array(sample_vote)*0
-		for col in range(numpy.size(sample_vote,1)): #Go throught the columns
-			new_col = standard_seq.index(self.ESN_sequence[col])		# ESN seq. for instance:  ['null','i','u','a']
-			new[:,new_col] = sample_vote[:,col]
-		sample_vote = new
+		# Change sequence of nodes in the sample vote if the ESN has a special sequence of nodes 
+		#	(e.g. ['null','i','u','a'] instead of self.vowels.append('null') )
+		if self.ESN_sequence and not self.ESN_sequence==self.ESN_std_sequence:
+			
+			if len(self.ESN_sequence) != len(self.ESN_std_sequence):
+				raise RuntimeError("Too many vowels initialized in ambient speech setup for this ESN you are using! Reinitialize with only those vowels before using 'learn'!")
+			else:
+				new = numpy.array(sample_vote)*0
+				for col in range(numpy.size(sample_vote,1)): #Go throught the columns
+					correct_col = self.ESN_std_sequence.index(self.ESN_sequence[col])		# ESN seq. for instance:  ['null','i','u','a']
+					new[:,correct_col] = sample_vote[:,col]
+				sample_vote = new
 		
 		
 		# Average each neurons' response over time
@@ -1505,38 +1517,17 @@ class functions(params):
 		# ----------------------------------------------------------------------
 		snapshot = plt.figure()
 		try:
-			reward_graph = snapshot.add_subplot(221)
+			graph = snapshot.add_subplot(111)
 			threshold = [self.convergence_thresholds[self.target]] * len(self.iteration_stages[self.target_index]) # A bar in the graph, indicating the reward threshold.
-			reward_graph.plot(self.iteration_stages[self.target_index],self.reward_history[self.target],'o')
-			reward_graph.plot(self.iteration_stages[self.target_index],threshold,'r-')
-			reward_graph.set_title('Reward / iterations')
-		
-			sigma_graph = snapshot.add_subplot(222)
-			sigma_graph.plot(self.iteration_stages[self.target_index],self.sigma_history[self.target],'o')
-			sigma_graph.set_title('Sigma / iterations')
-			
-			par_change = snapshot.add_subplot(223)
-			
-			# Parameter indices that are dynamic / static. Plot red/black
-			i_dynamic = self.i_pars_to_learn[:]
-			i_static = [i for i in range(len(self.target_pars_rel[self.target])) if i not in i_dynamic]
-			
-			
-			# starting parameters
-			for i in i_dynamic:
-				par_change.plot(numpy.array(self.learner_pars_rel_history[self.target]).T[i],alpha=0.9)
-				par_change.set_title('Dyn. par. devel. / iterations')
-			#par_change.xlabel('Target parameters')
-			#par_change.ylabel('Initial parameters')
-			
-			# parameters now..
-			end_par_scat = snapshot.add_subplot(224)
-			end_par_scat.scatter(self.target_pars_rel[self.target][i_dynamic],self.learner_pars_rel_history[self.target][-1][i_dynamic],color='red')
-			end_par_scat.scatter(self.target_pars_rel[self.target][i_static],self.learner_pars_rel_history[self.target][-1][i_static],color='black')
-			end_par_scat.set_title('Current parameters')
-			#par_change.xlabel('Target parameters')
-			#par_change.ylabel('Current leart parameters')
-		
+			graph.plot([x+5 for x in self.iteration_stages[self.target_index]],self.reward_history[self.target],'ro-',label='reward')
+			graph.plot([x+5 for x in self.iteration_stages[self.target_index]],threshold,'r--',label='reward_threshold')
+			graph.plot([x+15 for x in self.iteration_stages[self.target_index]],self.sigma_history[self.target],'bd-',label='sigma')
+			for i in self.i_pars_to_learn:
+				graph.plot(self.iteration_stages[self.target_index],numpy.array(self.learner_pars_rel_history[self.target]).T[i],'.--',alpha=0.3)
+			plt.xlabel('Iteration Number')
+			plt.ylabel('Value')
+			graph.set_title('CMA-ES Parameters over Generation Number')
+			plt.legend()
 			snapshot.savefig(self.result_folder+'/snapshot/snapshot_for_target_%s.png'%self.target)
 		except ValueError:
 			debug()

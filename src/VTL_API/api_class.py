@@ -309,8 +309,9 @@ class VTL_API_class():
 		
 		for here in range(4000,12001,200):
 			mean += abs(sound[here][0])
-			
-		valid = mean>0.2
+		
+		# Only non-silent sounds are valid.
+		valid = mean!=0.
 		
 		#from matplotlib import pyplot as plt
 		#plt.plot(sound)

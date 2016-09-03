@@ -50,7 +50,7 @@ class parameters(object):
 		
 		# Which main steps shall we do?
 		# Here, we tell our project shell in the main directory what do actually do.
-		self.execute_main_script = {'ambient_speech':False,'hear':False,'learn':False,'shell_analysis':True}
+		self.execute_main_script = {'ambient_speech':True,'hear':False,'learn':True,'shell_analysis':False}
 		
 	
 	
@@ -103,7 +103,7 @@ class parameters(object):
 		self.size = 22
 	
 		# The shape gestures we want to look at..
-		self.vowels="all"
+		self.vowels=['a','i','u']#"all"
 	
 		# The speakers in the speaker group we want to look at.. If you want the whole speaker group, simply put "all".
 		self.speakers="all"
@@ -256,28 +256,33 @@ class parameters(object):
 			# From which group?
 		self.sp_group_name = 'srangefm_2'		
 			#Target vowel for imitation (default: 'a') "all" = self.vowels
-		self.targets = "all"
+		self.targets = ['a']#"all"
 			#Initial target (can change after 1 iteration, due to intrinsic motivation)
 		self.target = "a"
 			#vocal tract parameters to learn (other options: 'all' or 'flat')
 				# Only the tongue (flat)?
 		#self.pars_to_learn = ['TCX','TTX','TTY','TBX','TBY']
 				# All except lips and tongue side elevations, jaw
-		self.pars_to_learn = ['TCX','TTX','TTY','TBX','TBY','HX','HY','VS'] # left out: ,'JA','LD','LP' (jaw and lip parameters)
+		#self.pars_to_learn = ['TCX','TTX','TTY','TBX','TBY','HX','HY','VS'] # left out: ,'JA','LD','LP' (jaw and lip parameters)
 				# All. Be careful not to omit the brackets!
-		#self.pars_to_learn = ["all"]
+		self.pars_to_learn = ["all"]
 			#simulate flat tongue, i.e. set all TS to 0 again and again? This only kicks into action, if you're not learning the tongue side elevations too.
 		self.flat_tongue = False
 		
 				# The ESN we're using:
 		# --------------------------------------------------------------
-		self.ESN_path = '/data/output/hear/'+self.sp_group_name+'/worker_0reservoir1000_leakyTrue.flow'
-		
+		# Important. If the sequence of nodes in the ESN used here does not correspond to how ambient speech was produced, you will have to perform the ambient
+		# speech setup again before executing learn. 
+		# 		(For example: ambient speech of 5 vowels is produced. But now we decide to use an ESN trained on only 3 vowels,
+		# 		- 'learn' will be confused, because it assumes the amount of vowels initialized in 'ambient speech setup' as also being the number of ESN output nodes.
+		# 		Solution: reinitialize with only 3 vowels (in ambient speech).
+		#self.ESN_path = '/data/output/hear/'+self.sp_group_name+'/worker_0reservoir1000_leakyTrue.flow'
+		self.ESN_path = '/data/output/hear/'+self.sp_group_name+'/3vow_N1000_reg.flow'
 		#self.ESN_path = raw_input("Please Enter the (relative) path to the reservoir (ESN) which is to be used in the babbling stage!:\n\t>")
 		
-			# Sequence of nodes:
-		#self.ESN_sequence = ['a','i','u','null'] # For the orig. ESNs (Murakami)
-		self.ESN_sequence = ["a","e","i","o","u",'null']
+			# Special ESN sequence of nodes? If not set False
+		self.ESN_sequence = ['a','i','u','null'] # For the orig. ESNs (Murakami)
+		#self.ESN_sequence = False
 		
 		
 		# Sampling.
@@ -301,14 +306,14 @@ class parameters(object):
 		# Reward computation and sigma
 		# --------------------------------------------------------------
 			#step-size = sigma (default=0.4)
-		self.sigma_0 = 0.5
+		self.sigma_0 = 0.3
 			#keep sigma 0 constant? Of course, sigma will still change, according to the change of fitness. But 'current_sigma' in the code is a value, that the (constantly
 			# changing) sigma will always go back to. (Go through 'learn_functions' looking for current_sigma and sigma, to see how they interact.
 		self.keep_sigma_constant = False
 			#alpha for constraint penalty (How badly should step-over-boundaries in the parameters be punished?)
-		self.alpha = 1.0
+		self.alpha = 0#1.
 			#energy balance factor. non-efficient motor configurations (e.g. extreme tongue positions) are punished when computing reward.
-		self.energy_factor = 0.1
+		self.energy_factor = 0#0.1
 			#restart search after bad solution from random learnt/nonlearnt parameters (see code)?
 		self.random_restart = True
 			#ignore reward for convergence?. Reward is not enough. We must converge, in order to finish. Turn this on?
@@ -329,16 +334,14 @@ class parameters(object):
 		self.conditioning_maximum = 1e14
 			# Parameter or Reward convergence range. This is the size of the parameter/reward window in which, if the last few generations stayed, the program will conclude,
 			# that we have converged (found a local minimum in the fitness landscape) and reset (see random_restart) and correct sigma (make bigger)
-		self.range_for_convergence = 0.05
+		self.range_for_convergence = 0.02
 			# The convergence interval is the number of datapoints which are checked if they converge in reward or parameters. This value is computed in the algorithm itself, 
 			# however, the user can set the interval here. (If automatic, simply put False).
 			# Must be above the size of one generation!
-		self.user_convergence_interval = 20
-			# Number of res
-		self.N_reservoir = 5
+		self.user_convergence_interval = 4
 			# Optional. (If you want to use the recommended amount of samples for each iteration, simply put False.) 
 			# If you set population size, convergence interval also must be set (ca. 3 x population size)
-		self.population_size = 15
+		self.population_size = 100
 		
 
 
