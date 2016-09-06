@@ -151,9 +151,12 @@ I tried my best to document the code itself extensively where needed. Knowing th
 The subfolder data/[backups VTL speaker groups contains a speaker group documentation (.txt file). In it some information on the speaker group (age of speakers, pitch, ..) - and how to use the speaker files in the code.
 
 
-
-		Produce pdf output like this:
-enscript -E -q -Z -p - -f Courier10 _name of script_.py | ps2pdf - _name of pdf_.pdf
+		Towards arbitrary vowel gestures
+This repo is designed with the aim of making 'Listen and Babble' extendable, introducing not only vowel gestures but others alike. Two simplifications can be a help for such ventures:
+1. All functions which call the VTL Api are now reduced to one (in VTL_API/api-class.py). 
+2. All gesture parameters are no longer explicitly in the code, but are read out of the speaker files.
+The first makes introducing (e.g.) gesture sequences (syllables) much more straightforward. Simply rename the word "vowel" in all source code: self.vowels = ['a','e']  >  self.syllables = ['ta','la', etc.]. Now, simply work with the script api-class.py and mould it for your own purposes.
+The second makes introducing new 'shapes' (since they need only be introduced in the speaker files) trivial. 'ambient-speech', for example, extracts those important parameters directly from the speaker files now.
 
 
 

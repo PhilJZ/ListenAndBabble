@@ -442,14 +442,14 @@ class functions(params):
 		
 		# sigma_0 is the initial sigma (always stays the same). 
 		# The learner will reset every time he runs into a local
-		# minimum. (during conversion, 'current_sigma' gets smaller
+		# minimum. (during conversion, 'reset_sigma' gets smaller
 		# and smaller. Then, after reset, sigma (the starting value of
-		# current_sigma) can be altered. Thus, we have 3 sigmas, of 
-		# which sigma_0 will always stay the same, current_sigma changes slowly 
+		# reset_sigma) can be altered. Thus, we have 3 sigmas, of 
+		# which sigma_0 will always stay the same, reset_sigma changes slowly 
 		# with every reset. sigma is changed after every generation.
-		# For now, we set both sigma and current_sigma to sigma_0
-		sigma = self.sigma_0
-		current_sigma = self.sigma_0
+		# For now, we set both sigma and reset_sigma to sigma_0
+		sigma = self.start_sigma
+		reset_sigma = self.start_sigma
 		
 		# initialize x_mean. x_mean is the current state of our learnt parameters.
 		# The learner_pars will be updated using x_mean.
@@ -467,7 +467,7 @@ class functions(params):
 		x_recent.append(x_mean)
 		
 		# recent fitness
-		sorted_fitness_recent = list()
+		fitness_recent = list()
 		
 		
 		# Some variables needed for the learning.
@@ -488,7 +488,7 @@ class functions(params):
 		else:
 			convergence_interval = self.user_convergence_interval
 		i_reset = 0
-
+		
 			# Strategy parameter setting: Adaptation
 		c_c = (4.0+mu_eff/self.N_dim) / (self.N_dim+4.0+2*mu_eff/self.N_dim)
 										# time constant for cumulation for C
@@ -541,7 +541,7 @@ class functions(params):
 			
 			print 4*'\n'
 			print 40*"-"
-			print "Generating new generation of speech gestures.."
+			print "New generation of %s speech gestures being synthesized (VTL)..."%str(self.population_size)
 			print 40*"-"
 			
 			
@@ -597,13 +597,6 @@ class functions(params):
 			#	- are we still below that threshold? (else:) > Update x_mean and other parameters, start loop again..
 			# (each part is separated by some empty lines)
 			"""
-			
-			
-			
-			
-			
-			
-			
 			# If we are above the reward (convergence) threshold in one of the samples..
 			# ---------------------------------------------------------------------------------------------------------------------------
 			if (fitness < -self.convergence_thresholds[self.target]).any() and not self.must_converge:		#  - remember: we defined fitness as negative.
@@ -647,8 +640,8 @@ class functions(params):
 					B_D = numpy.dot(B,D)		
 					C = numpy.dot(B_D, (B_D).T)
 					i_eigen = 0
-					current_sigma = self.sigma_0			   
-					sigma = current_sigma
+					reset_sigma = self.start_sigma			   
+					sigma = reset_sigma
 					i_reset = 0
 
 				else:
@@ -770,42 +763,43 @@ class functions(params):
 					D = numpy.diag(numpy.sqrt(D)) # D contains standard deviations now
 					B_D = numpy.dot(B,D)
 
-
+				
 				# Escape flat fitness
 				# -----------------------------------------------------------------------------
-				if False:#sorted_fitness[0] == sorted_fitness[int(numpy.ceil(0.7*self.population_size))]:
+				if sorted_fitness[0] == sorted_fitness[int(numpy.ceil(0.7*self.population_size))]:
 					sigma *= numpy.exp(0.2+c_s/damps)
 					print 'Warning: flat fitness, consider reformulating the objective'
 					print 'Fitness (highest first):', sorted_fitness
 					
+					
 				
-				# Do we have anough data points to even thing about convergence (and termination)?
+				# Do we have anough data points to even thing about convergence (and convergence)?
 				enough = False
 				while len(x_recent) > convergence_interval - 1:
 					x_recent.pop(0)
 					enough = True
-				while len(sorted_fitness_recent) > convergence_interval - 1:
-					sorted_fitness_recent.pop(0)
+				while len(fitness_recent) > convergence_interval - 1:
+					fitness_recent.pop(0)
 					enough = True
-					
-				x_recent.append(x_mean)
-				sorted_fitness_recent.append(fitness_mean)
 				
-				# Compute termination criteria (C_matrix_criterium not dependant on how many data points)
+				x_recent.append(x_mean)
+				fitness_recent.append(fitness_mean)
+				
+				# Compute convergence criteria (C_matrix_criterium not dependant on how many data points)
 				cond = numpy.linalg.cond(C)
 				C_matrix_criterium = (cond > self.conditioning_maximum)
 				if enough:
 					recent_params_range = numpy.ptp(x_recent, axis=0)
 					converged_params = (recent_params_range < self.range_for_convergence).all()
-					converged_fitness = (numpy.ptp(sorted_fitness_recent) < self.range_for_convergence)
+					converged_fitness = (numpy.ptp(fitness_recent) < self.range_for_convergence)
 				else:
 					converged_params = False
 					converged_fitness = False
+					
+				convergence = converged_fitness or converged_params or C_matrix_criterium
 				
-				termination = converged_fitness or converged_params or C_matrix_criterium
 				
-				
-				if termination:
+				if convergence:
 					print 'convergence criterion reached.'
 					if (sorted_fitness[0] > -self.convergence_thresholds[self.target]): # confidence worse than desired
 						print 'reward too low. resetting sampling distribution.'
@@ -818,24 +812,24 @@ class functions(params):
 						C = numpy.dot(B_D, (B_D).T)
 						i_eigen = 0
 						if self.random_restart and self.targets_learnt:
-							if current_sigma < 0.9 and not self.keep_sigma_constant:
-								current_sigma += 0.05			  
-							sigma = current_sigma
+							if reset_sigma < 0.9 and not self.keep_sigma_constant:
+								reset_sigma += 0.05			  
+							sigma = reset_sigma
 							
 							# Preferably chose a already learned target
 							random_target = random.choice(self.targets_learnt)
 						
 							print 'Agent chose to restart search of current target from learnt parameters of target /%s/'%random_target
-								
+							
 							x_mean = self.learner_pars_rel[random_target][self.i_pars_to_learn]
 								
 
 						else:
-							x_mean = self.neutral_pars_rel[self.i_pars_to_learn]
-							print 'Agent chose to restart search of current target from neutral parameters.'
-							if current_sigma < 0.9 and not self.keep_sigma_constant:
-								current_sigma += 0.1
-								sigma = current_sigma
+							#x_mean = self.neutral_pars_rel[self.i_pars_to_learn]
+							print 'Agent chose to stay with those parameters, but increase sigma'
+							if reset_sigma < 0.9 and not self.keep_sigma_constant:
+								reset_sigma += 0.1
+								sigma = reset_sigma
 								print "Sigma increased!"
 								
 						
@@ -852,9 +846,9 @@ class functions(params):
 							D = numpy.eye(self.N_dim)		   
 							C = numpy.dot(B_D, (B_D).T)	
 							i_eigen = 0
-							current_sigma = self.sigma_0
-							print "sigma0: "+str(self.sigma_0)		   
-							sigma = current_sigma
+							reset_sigma = self.start_sigma
+							print "sigma0: "+str(self.start_sigma)		   
+							sigma = reset_sigma
 							i_reset = 0
 						else:
 							print 'terminating.'
@@ -1017,9 +1011,9 @@ class functions(params):
 		
 		for i in xrange(self.population_size):   # offspring generation loop
 
-			invalid = True
-			if self.resample['normal'] and not (self.resample['penalty'] and self.resample['specific']):
-				
+			
+			if self.resample=='normal':
+				invalid = True
 				while invalid:
 					N_resampled += 1
 					z_i = numpy.random.randn(self.N_dim)	  # standard normally distributed vector
@@ -1027,14 +1021,12 @@ class functions(params):
 					invalid = (x_i < 0.0).any() or (x_i > 1.0).any()
 
 				boundary_penalty_i = 0.0
-			elif self.resample['penalty'] and not (self.resample['normal'] and self.resample['specific']):
+			elif self.resample=='penalty':
 				N_resampled = 0
 				z_i = numpy.random.randn(self.N_dim)		  # standard normally distributed vector
 				x_i = x_mean + sigma*(numpy.dot(B_D, z_i)) # add mutation, Eq. 37
 				boundary_penalty_i = 0.0
 				if (x_i<0.0).any() or (x_i>1.0).any(): # check boundary condition
-					if self.verbose:
-						print 'boundary violated. repairing and penalizing.'
 					x_repaired = x_i.copy()	   # repair sample
 					for i_component in xrange(len(x_i)):
 						if x_i[i_component] > 1.0:
@@ -1045,8 +1037,7 @@ class functions(params):
 												# penalize boundary violation, Eq. 51
 					x_i = x_repaired[:]
 					
-			elif self.resample['specific'] and not (self.resample['penalty'] and self.resample['normal']):
-				
+			elif self.resample=='specific':
 
 				# This is similar to 'get noisy parameters' in ambient_speech_functions.py
 				invalid = numpy.ones(len(x_mean), dtype=bool)
@@ -1065,7 +1056,43 @@ class functions(params):
 					if invalid.any():
 						boundary_penalty_i += numpy.linalg.norm(abs(x_i[invalid]-0.5)-0.5)**2 #This is essentially the distance from the boundaries 0 or 1.
 						x_i[invalid] = numpy.array(x_mean)[invalid] #take away the noise where invalid
+						
+			elif self.resample=='soft_edge':
+				edge_sigma = 0.2
+							# After sampling, those that overstep the boundaries of the 1x1x1... hypercube will be
+							# resampled at that boundary with the edge sigma.
 				
+				invalid = numpy.ones(len(x_mean), dtype=bool)
+				upper_limit = numpy.ones(len(x_mean))
+				lower_limit = numpy.zeros(len(x_mean))
+				
+				x_i = numpy.array(x_mean[:])
+				boundary_penalty_i = 0.0
+				
+				numpy.random.seed()
+				z_i = numpy.random.randn(self.N_dim)	  # standard normally distributed vector
+				perturbation = sigma*(numpy.dot(B_D, z_i))  # add mutation, Eq. 37
+				perturbation[numpy.logical_not(invalid)] = 0 # only those that are invalid will be (re-) 'noised'
+				x_i = x_i + perturbation
+				
+				# Which ones are invalid? (invalid is a matrix!)
+				# The samples have to be in relative coordinates between 0 and 1!
+				too_large = (x_i > 1.0)
+				too_small = (x_i < 0.0)
+				invalid = numpy.logical_or(too_small , too_large)
+				
+				# resampling with edge sigma
+				if invalid.any():
+					boundary_penalty_i += numpy.linalg.norm(abs(x_i[invalid]-0.5)-0.5)**2 #This is essentially the distance from the boundaries 0 or 1.
+					
+					edge_noise =  numpy.fabs(edge_sigma*numpy.random.randn(self.N_dim))
+					
+					if too_large.any():
+						x_i[too_large] = upper_limit[too_large] - edge_noise[too_large]
+					
+					if too_small.any():
+						x_i[too_small] = lower_limit[too_small] + edge_noise[too_small]
+						
 				
 			else:
 				raise RuntimeError('Specify only one resample method (set only one to True) (Set this parameter in get_params.py)')
@@ -1149,7 +1176,7 @@ class functions(params):
 		
 		else:
 			# Call the function, right below..
-			confidence,mean_sample_vote = self.get_confidence(wav_path,plot=False)
+			confidence = self.get_confidence(wav_path,plot=False)
 		
 		
 			return confidence
@@ -1184,10 +1211,9 @@ class functions(params):
 
 		sample_vote = self.flow(cochlear_activation)                       # evaluate trained self.verbose units' responses for current item
 
-		normalize = True
-		def normalize_activity(x):
-			#Define a neat function which is called right below.. =)
-	
+		
+		def old_normalize_function(x):
+			""" Murakami's code.."""
 			x_normalized = x.copy()
 			minimum = x.min()
 			maximum = x.max()
@@ -1198,13 +1224,15 @@ class functions(params):
 			return x_normalized
 		
 		def shift_and_normalize_activity(x):
-			
+			""" New normalizing function (easier)"""
 			x_shifted = x - x.min()
 			x_shifted /= x.max()
 			return x_shifted
 		
-		#sample_vote = normalize_activity(sample_vote)
-		sample_vote = shift_and_normalize_activity(sample_vote)
+		# the old normalise function proves more precise (reward wise)
+		"""#sample_vote = shift_and_normalize_activity(sample_vote)"""
+		sample_vote = old_normalize_function(sample_vote)
+		
 		
 		# Change sequence of nodes in the sample vote if the ESN has a special sequence of nodes 
 		#	(e.g. ['null','i','u','a'] instead of self.vowels.append('null') )
@@ -1223,7 +1251,6 @@ class functions(params):
 		# Average each neurons' response over time
 		mean_sample_vote = numpy.mean(sample_vote, axis=0)
 		
-		
 		# Get confidences
 		# -----------------------------------------------------------------------------------------------------------------------------------------
 		def get_confidence(vote):
@@ -1235,6 +1262,7 @@ class functions(params):
 			return confidence
 
 		confidence = get_confidence(mean_sample_vote)
+		
 		
 		# Plot reservoir states (this is done after the learning and skipped during learning)
 		# -----------------------------------------------------------------------------------------------------------------------------------------
@@ -1248,7 +1276,7 @@ class functions(params):
 		#print "Confidence = %s"%str(confidence[:])
 
 			
-		return confidence,mean_sample_vote
+		return confidence
 
 		
 		
@@ -1459,7 +1487,7 @@ class functions(params):
 			# For example: generation maxima is: array([ 0.,  0.,  0.,  0.,  0.,  1.])
 			# In this case, simply pick a random non-learnt target
 			self.target = random.choice([t for t in self.targets if self.targets.index(t) in unlearnt_target_indices])
-			self.target_index = self.targets.index(self.target)			
+			self.target_index = self.targets.index(self.target)	
 		
 	
 	
@@ -1526,6 +1554,7 @@ class functions(params):
 				graph.plot(self.iteration_stages[self.target_index],numpy.array(self.learner_pars_rel_history[self.target]).T[i],'.--',alpha=0.3)
 			plt.xlabel('Iteration Number')
 			plt.ylabel('Value')
+			plt.ylim([0,1])
 			graph.set_title('CMA-ES Parameters over Generation Number')
 			plt.legend()
 			snapshot.savefig(self.result_folder+'/snapshot/snapshot_for_target_%s.png'%self.target)
