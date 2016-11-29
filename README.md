@@ -3,9 +3,14 @@
 #ListenAndBabble (forked repo): Introduction
 ------------------------------------------------------
 
-See README of forked repo for the model published in 'Murakami et al. (2015)': "Seeing [u] aids vocal learning: babbling and imitation of vowels using a 3D vocal tract model, reinforcement learning, and reservoir computing." International Conference on Development and Learning and on Epigenetic Robotics 2015 (in press).'
+Read "A model of infant speech perception and learning", 
+published here: https://arxiv.org/abs/1610.06214
+in order to understand the project in this repository.
 
-Code taken from the original project has been adapted and restructured in order to make it more widely applicable (to include whole series of speakers, etc.). 
+Code taken (forked) from the original project:
+'Murakami et al. (2015)': "Seeing [u] aids vocal learning: babbling and imitation of vowels using a 3D vocal tract model, reinforcement learning, and reservoir computing." International Conference on Development and Learning and on Epigenetic Robotics 2015 (in press).'
+has been adapted and restructured in order to make it more widely applicable (to include whole series of speakers, etc.).
+
 Also, a whole new step was added to the project: "ambient speech" which
 -sets up a speaker group produced in VTL, 
 -adjusts various parameters (like voice-pitch of each speaker),
